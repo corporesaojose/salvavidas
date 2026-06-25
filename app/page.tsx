@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { BlockType, FormState, Step } from "@/lib/missao/types";
+import type { BlockType, FormState, MissaoResult, Step } from "@/lib/missao/types";
 import { FEEDBACK_ETAPAS } from "@/lib/missao/questions";
 import { calculateResult } from "@/lib/missao/scoring";
 
@@ -39,9 +39,22 @@ const INITIAL_STATE: FormState = {
 export default function MissaoPage() {
   const [step, setStep] = useState<Step>({ type: "welcome" });
   const [formState, setFormState] = useState<FormState>(INITIAL_STATE);
+  const [result, setResult] = useState<MissaoResult | null>(null);
 
   function goTo(type: BlockType) {
     setStep({ type });
+  }
+
+  function handleCalculatingDone() {
+    const computed = calculateResult(formState);
+    setResult(computed);
+    goTo("result");
+
+    fetch("/api/leads/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ formState, result: computed }),
+    }).catch((err) => console.error("Erro ao salvar lead:", err));
   }
 
   const firstName = formState.identificacao.nomeCompleto.trim().split(" ")[0] || "";
@@ -102,10 +115,10 @@ export default function MissaoPage() {
         />
       )}
 
-      {step.type === "calculating" && <CalculatingScreen onDone={() => goTo("result")} />}
+      {step.type === "calculating" && <CalculatingScreen onDone={handleCalculatingDone} />}
 
-      {step.type === "result" && (
-        <ResultScreen result={calculateResult(formState)} firstName={firstName} />
+      {step.type === "result" && result && (
+        <ResultScreen result={result} firstName={firstName} />
       )}
     </>
   );
