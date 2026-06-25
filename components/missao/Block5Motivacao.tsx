@@ -176,7 +176,7 @@ export default function Block5Motivacao({
               icon="🏆"
               blockLabel="Motivação"
               counter={counter}
-              title="O que você quer conseguir fazer daqui a 20 ou 30 anos que hoje sente que está difícil ou perdendo?"
+              title="O que você quer conseguir fazer aos 80, 85, 90 anos?"
               subtext="Pode marcar mais de um"
               visible={visible}
             />
