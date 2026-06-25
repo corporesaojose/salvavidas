@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { BlockType, FormState, MissaoResult, Step } from "@/lib/missao/types";
 import { FEEDBACK_ETAPAS } from "@/lib/missao/questions";
 import { calculateResult } from "@/lib/missao/scoring";
@@ -47,6 +47,12 @@ export default function MissaoPage() {
   const [step, setStep] = useState<Step>({ type: "welcome" });
   const [formState, setFormState] = useState<FormState>(INITIAL_STATE);
   const [result, setResult] = useState<MissaoResult | null>(null);
+  const [telefone, setTelefone] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setTelefone(params.get("telefone") || "");
+  }, []);
 
   function goTo(type: BlockType) {
     setStep({ type });
@@ -60,7 +66,7 @@ export default function MissaoPage() {
     fetch("/api/leads/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ formState, result: computed }),
+      body: JSON.stringify({ formState, result: computed, telefone }),
     }).catch((err) => console.error("Erro ao salvar lead:", err));
   }
 

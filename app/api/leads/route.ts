@@ -13,6 +13,7 @@ import {
 interface LeadPayload {
   formState: FormState;
   result: MissaoResult;
+  telefone?: string;
 }
 
 function labelFor<T extends string>(
@@ -73,7 +74,7 @@ async function sendN8nWebhook(payload: Record<string, unknown>) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { formState, result } = (await req.json()) as LeadPayload;
+    const { formState, result, telefone } = (await req.json()) as LeadPayload;
 
     if (!formState?.identificacao?.nomeCompleto) {
       return NextResponse.json({ error: "Dados incompletos" }, { status: 400 });
@@ -127,6 +128,7 @@ export async function POST(req: NextRequest) {
 
     await sendN8nWebhook({
       lead_id: leadId,
+      telefone: telefone || null,
       nome: formState.identificacao.nomeCompleto,
       idade: Number(formState.identificacao.idade),
       bairro: formState.identificacao.bairro,
