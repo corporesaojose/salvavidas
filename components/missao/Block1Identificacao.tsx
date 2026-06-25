@@ -11,9 +11,10 @@ const inputClass =
   "w-full rounded-card bg-[#232320] border border-[#faf8f0]/15 px-4 py-3.5 text-white placeholder:text-[#faf8f0]/30 outline-none focus:border-lime-400 transition-colors normal-case font-normal text-base";
 
 const QUESTIONS = [
-  { key: "nomeCompleto" as const, icon: "👋", title: "Qual o seu nome completo?", placeholder: "Seu nome completo" },
-  { key: "bairro" as const, icon: "📍", title: "Em qual bairro você mora?", placeholder: "Seu bairro" },
-  { key: "nomeIndicador" as const, icon: "💚", title: "Quem te convidou para essa missão?", subtext: "Nome e sobrenome de quem te deu o voucher", placeholder: "Nome e sobrenome" },
+  { key: "nomeCompleto" as const, icon: "👋", title: "Qual o seu nome completo?", placeholder: "Seu nome completo", type: "text" as const },
+  { key: "idade" as const, icon: "🎂", title: "Qual a sua idade?", placeholder: "Sua idade", type: "number" as const },
+  { key: "bairro" as const, icon: "📍", title: "Em qual bairro você mora?", placeholder: "Seu bairro", type: "text" as const },
+  { key: "nomeIndicador" as const, icon: "💚", title: "Quem te convidou para essa missão?", subtext: "Nome e sobrenome de quem te deu o voucher", placeholder: "Nome e sobrenome", type: "text" as const },
 ];
 
 export default function Block1Identificacao({
@@ -31,7 +32,8 @@ export default function Block1Identificacao({
 
   const q = QUESTIONS[subStep];
   const value = data[q.key];
-  const isValid = value.trim().length > 1;
+  const isValid =
+    q.type === "number" ? /^\d+$/.test(value.trim()) && Number(value) > 0 : value.trim().length > 1;
 
   function handleNext() {
     setTouched(true);
@@ -72,6 +74,8 @@ export default function Block1Identificacao({
         >
           <input
             className={inputClass}
+            type={q.type === "number" ? "number" : "text"}
+            inputMode={q.type === "number" ? "numeric" : undefined}
             value={value}
             autoFocus
             onChange={(e) => onChange({ ...data, [q.key]: e.target.value })}

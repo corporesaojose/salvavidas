@@ -1,8 +1,9 @@
 import type {
+  DesejoFuturo,
   DiasSemana,
   Desafio,
   HorarioPreferencia,
-  LocalTreino,
+  HorasSentado,
   NivelHabito,
   Objetivo,
 } from "./types";
@@ -23,14 +24,6 @@ export const FEEDBACK_ETAPAS: Record<number, string> = {
   3: "Incrível! Essas informações vão fazer diferença no seu treino.",
   4: "Missão quase completa. Último passo!",
 };
-
-export const LOCAIS_TREINO: { value: LocalTreino; label: string }[] = [
-  { value: "academia", label: "Academia" },
-  { value: "ar_livre", label: "Atividade ao ar livre" },
-  { value: "esporte", label: "Esporte" },
-  { value: "casa", label: "Em casa" },
-  { value: "outro", label: "Outro" },
-];
 
 export const OBJETIVOS: { value: Objetivo; label: string; emoji: string }[] = [
   { value: "emagrecer", label: "Emagrecer / perder gordura", emoji: "🔥" },
@@ -67,6 +60,13 @@ export const HABITOS_LIST = [
   { key: "agua" as const, label: "Hidratação", emoji: "💧" },
 ];
 
+export const HORAS_SENTADO: { value: HorasSentado; label: string }[] = [
+  { value: "menos_4h", label: "Menos de 4h" },
+  { value: "4_6h", label: "4h a 6h" },
+  { value: "6_8h", label: "6h a 8h" },
+  { value: "mais_8h", label: "Mais de 8h" },
+];
+
 export const DESAFIOS: { value: Desafio; label: string }[] = [
   { value: "falta_tempo", label: "Falta de tempo" },
   { value: "falta_motivacao", label: "Falta de motivação" },
@@ -76,5 +76,15 @@ export const DESAFIOS: { value: Desafio; label: string }[] = [
   { value: "dificuldade_financeira", label: "Dificuldade financeira" },
   { value: "problemas_saude", label: "Problemas de saúde ou limitação física" },
   { value: "falta_companhia", label: "Falta de companhia para treinar" },
+  { value: "outro", label: "Outro" },
+];
+
+export const DESEJOS_FUTUROS: { value: DesejoFuturo; label: string }[] = [
+  { value: "subir_escadas", label: "Subir escadas sem se cansar" },
+  { value: "brincar_filhos_netos", label: "Brincar com meus filhos ou netos sem limitação" },
+  { value: "viajar_disposicao", label: "Viajar com disposição e energia" },
+  { value: "praticar_esporte", label: "Praticar um esporte ou atividade que amo" },
+  { value: "sentir_bem_confiante", label: "Me sentir bem e confiante com meu corpo" },
+  { value: "independencia_velhice", label: "Ter independência e autonomia na velhice" },
   { value: "outro", label: "Outro" },
 ];

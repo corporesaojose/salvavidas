@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { MotivacaoData } from "@/lib/missao/types";
-import { DESAFIOS } from "@/lib/missao/questions";
+import { DESAFIOS, DESEJOS_FUTUROS } from "@/lib/missao/questions";
 import StepShell from "./StepShell";
 import QuestionHeader from "./QuestionHeader";
 import BackButton from "./BackButton";
@@ -13,6 +13,8 @@ const inputClass =
   "w-full rounded-card bg-[#232320] border border-[#faf8f0]/15 px-4 py-3.5 text-white placeholder:text-[#faf8f0]/30 outline-none focus:border-lime-400 transition-colors normal-case font-normal text-base";
 
 const MOTIVACAO_EMOJI = ["😴", "😴", "😕", "😕", "🙂", "🙂", "💪", "💪", "🔥", "🔥", "🚀"];
+
+const TOTAL_STEPS = 4;
 
 export default function Block5Motivacao({
   data,
@@ -26,15 +28,29 @@ export default function Block5Motivacao({
   const [subStep, setSubStep] = useState(0);
   const [touched, setTouched] = useState(false);
   const visible = useStepTransition(subStep);
-  const counter = `${subStep + 1}/2`;
+  const counter = `${subStep + 1}/${TOTAL_STEPS}`;
 
   function handleContinue() {
     if (subStep === 0) {
+      setTouched(true);
+      if (!data.porQueAgora.trim()) return;
       setSubStep(1);
+      setTouched(false);
+      return;
+    }
+    if (subStep === 1) {
+      setSubStep(2);
+      return;
+    }
+    if (subStep === 2) {
+      setTouched(true);
+      if (data.desafios.length === 0) return;
+      setSubStep(3);
+      setTouched(false);
       return;
     }
     setTouched(true);
-    if (data.desafios.length === 0) return;
+    if (data.desejosFuturos.length === 0) return;
     onNext();
   }
 
@@ -43,13 +59,44 @@ export default function Block5Motivacao({
       {subStep > 0 && (
         <BackButton
           onClick={() => {
-            setSubStep(0);
+            setSubStep((s) => s - 1);
             setTouched(false);
           }}
         />
       )}
       <div className="card p-6 flex flex-col gap-6">
         {subStep === 0 && (
+          <>
+            <QuestionHeader
+              icon="✨"
+              blockLabel="Motivação"
+              counter={counter}
+              title="O que te fez decidir entrar nessa missão agora?"
+              visible={visible}
+            />
+            <div
+              style={{
+                opacity: visible ? 1 : 0,
+                transform: visible ? "translateY(0)" : "translateY(10px)",
+                transition: "opacity 0.35s ease 0.12s, transform 0.35s ease 0.12s",
+              }}
+            >
+              <input
+                className={inputClass}
+                value={data.porQueAgora}
+                autoFocus
+                onChange={(e) => onChange({ ...data, porQueAgora: e.target.value })}
+                onKeyDown={(e) => e.key === "Enter" && handleContinue()}
+                placeholder="Conte com suas palavras"
+              />
+              {touched && !data.porQueAgora.trim() && (
+                <p className="text-xs text-[#cc4b3c] mt-2">Preencha esse campo para continuar.</p>
+              )}
+            </div>
+          </>
+        )}
+
+        {subStep === 1 && (
           <>
             <QuestionHeader
               icon="🔥"
@@ -82,7 +129,7 @@ export default function Block5Motivacao({
           </>
         )}
 
-        {subStep === 1 && (
+        {subStep === 2 && (
           <>
             <QuestionHeader
               icon="🚧"
@@ -122,10 +169,51 @@ export default function Block5Motivacao({
             )}
           </>
         )}
+
+        {subStep === 3 && (
+          <>
+            <QuestionHeader
+              icon="🏆"
+              blockLabel="Motivação"
+              counter={counter}
+              title="O que você quer conseguir fazer daqui a 20 ou 30 anos que hoje sente que está difícil ou perdendo?"
+              subtext="Pode marcar mais de um"
+              visible={visible}
+            />
+            <div className="flex flex-col gap-2">
+              {DESEJOS_FUTUROS.map((opt, i) => (
+                <OptionButton
+                  key={opt.value}
+                  label={opt.label}
+                  selected={data.desejosFuturos.includes(opt.value)}
+                  visible={visible}
+                  delay={0.12 + i * 0.05}
+                  onClick={() => {
+                    const next = data.desejosFuturos.includes(opt.value)
+                      ? data.desejosFuturos.filter((v) => v !== opt.value)
+                      : [...data.desejosFuturos, opt.value];
+                    onChange({ ...data, desejosFuturos: next });
+                  }}
+                />
+              ))}
+            </div>
+            {data.desejosFuturos.includes("outro") && (
+              <input
+                className={inputClass}
+                value={data.outroDesejoFuturo}
+                onChange={(e) => onChange({ ...data, outroDesejoFuturo: e.target.value })}
+                placeholder="O que mais?"
+              />
+            )}
+            {touched && data.desejosFuturos.length === 0 && (
+              <p className="text-xs text-[#cc4b3c]">Marque ao menos uma opção para continuar.</p>
+            )}
+          </>
+        )}
       </div>
 
       <button onClick={handleContinue} className="btn-primary w-full">
-        {subStep === 0 ? "Continuar →" : "Concluir minha missão →"}
+        {subStep < 3 ? "Continuar →" : "Concluir minha missão →"}
       </button>
     </StepShell>
   );

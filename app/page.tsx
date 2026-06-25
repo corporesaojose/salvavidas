@@ -16,24 +16,31 @@ import CalculatingScreen from "@/components/missao/CalculatingScreen";
 import ResultScreen from "@/components/missao/ResultScreen";
 
 const INITIAL_STATE: FormState = {
-  identificacao: { nomeCompleto: "", bairro: "", nomeIndicador: "" },
+  identificacao: { nomeCompleto: "", idade: "", bairro: "", nomeIndicador: "" },
   historicoTreino: {
     historico: null,
     oQuePraticava: "",
-    ondeTreina: null,
     qualAtividade: "",
     objetivos: [],
     outroObjetivo: "",
     diasSemana: null,
     horarioPreferencia: null,
   },
-  habitos: { stress: null, sono: null, alimentacao: null, agua: null },
+  habitos: { stress: null, sono: null, alimentacao: null, agua: null, energia: null, horasSentado: null },
   saude: {
     problemaSaude: { tem: null, descricao: "" },
     doresLesoes: { tem: null, descricao: "" },
     cirurgiaRecente: { tem: null, descricao: "" },
+    historicoFamiliar: { tem: null, descricao: "" },
   },
-  motivacao: { nivelMotivacao: 5, desafios: [], outroDesafio: "" },
+  motivacao: {
+    porQueAgora: "",
+    nivelMotivacao: 5,
+    desafios: [],
+    outroDesafio: "",
+    desejosFuturos: [],
+    outroDesejoFuturo: "",
+  },
 };
 
 export default function MissaoPage() {

@@ -1,7 +1,5 @@
 export type HistoricoTreino = "nunca" | "parei" | "atual";
 
-export type LocalTreino = "academia" | "ar_livre" | "esporte" | "casa" | "outro";
-
 export type Objetivo =
   | "emagrecer"
   | "massa_muscular"
@@ -16,6 +14,17 @@ export type HorarioPreferencia = "manha" | "tarde" | "noite";
 
 export type NivelHabito = "otimo" | "bom" | "regular" | "precisa_melhorar";
 
+export type HorasSentado = "menos_4h" | "4_6h" | "6_8h" | "mais_8h";
+
+export type DesejoFuturo =
+  | "subir_escadas"
+  | "brincar_filhos_netos"
+  | "viajar_disposicao"
+  | "praticar_esporte"
+  | "sentir_bem_confiante"
+  | "independencia_velhice"
+  | "outro";
+
 export type Desafio =
   | "falta_tempo"
   | "falta_motivacao"
@@ -29,6 +38,7 @@ export type Desafio =
 
 export interface IdentificacaoData {
   nomeCompleto: string;
+  idade: string;
   bairro: string;
   nomeIndicador: string;
 }
@@ -36,7 +46,6 @@ export interface IdentificacaoData {
 export interface HistoricoTreinoData {
   historico: HistoricoTreino | null;
   oQuePraticava: string;
-  ondeTreina: LocalTreino | null;
   qualAtividade: string;
   objetivos: Objetivo[];
   outroObjetivo: string;
@@ -49,6 +58,8 @@ export interface HabitosData {
   sono: NivelHabito | null;
   alimentacao: NivelHabito | null;
   agua: NivelHabito | null;
+  energia: NivelHabito | null;
+  horasSentado: HorasSentado | null;
 }
 
 export interface SaudeItem {
@@ -60,12 +71,16 @@ export interface SaudeData {
   problemaSaude: SaudeItem;
   doresLesoes: SaudeItem;
   cirurgiaRecente: SaudeItem;
+  historicoFamiliar: SaudeItem;
 }
 
 export interface MotivacaoData {
+  porQueAgora: string;
   nivelMotivacao: number;
   desafios: Desafio[];
   outroDesafio: string;
+  desejosFuturos: DesejoFuturo[];
+  outroDesejoFuturo: string;
 }
 
 export interface FormState {

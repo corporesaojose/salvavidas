@@ -15,6 +15,13 @@ const QUESTIONS = [
   { key: "problemaSaude" as const, icon: "🩺", title: "Tem algum problema de saúde?", placeholder: "Qual?" },
   { key: "doresLesoes" as const, icon: "🦴", title: "Tem dores ou lesões?", placeholder: "Qual?" },
   { key: "cirurgiaRecente" as const, icon: "🏥", title: "Fez alguma cirurgia recente?", placeholder: "Qual?" },
+  {
+    key: "historicoFamiliar" as const,
+    icon: "🧬",
+    title:
+      "Algum familiar próximo (pai, mãe ou irmãos) teve infarto, AVC, diabetes ou Alzheimer antes dos 60 anos?",
+    placeholder: "Qual?",
+  },
 ];
 
 export default function Block4Saude({

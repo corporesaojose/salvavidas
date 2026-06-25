@@ -5,7 +5,6 @@ import type { HistoricoTreinoData } from "@/lib/missao/types";
 import {
   DIAS_SEMANA,
   HORARIOS,
-  LOCAIS_TREINO,
   OBJETIVOS,
 } from "@/lib/missao/questions";
 import StepShell from "./StepShell";
@@ -20,7 +19,6 @@ const inputClass =
 type StepId =
   | "historico"
   | "oQuePraticava"
-  | "ondeTreina"
   | "qualAtividade"
   | "objetivos"
   | "diasSemana"
@@ -29,7 +27,7 @@ type StepId =
 function getSteps(data: HistoricoTreinoData): StepId[] {
   const steps: StepId[] = ["historico"];
   if (data.historico === "parei") steps.push("oQuePraticava");
-  if (data.historico === "atual") steps.push("ondeTreina", "qualAtividade");
+  if (data.historico === "atual") steps.push("qualAtividade");
   steps.push("objetivos", "diasSemana", "horarioPreferencia");
   return steps;
 }
@@ -126,24 +124,6 @@ export default function Block2HistoricoTreino({
             {touched && !data.oQuePraticava.trim() && (
               <p className="text-xs text-[#cc4b3c]">Preencha esse campo para continuar.</p>
             )}
-          </>
-        )}
-
-        {stepId === "ondeTreina" && (
-          <>
-            <QuestionHeader icon="📍" blockLabel="Histórico de Treino" counter={counter} title="Onde você treina?" visible={visible} />
-            <div className="flex flex-col gap-2">
-              {LOCAIS_TREINO.map((opt, i) => (
-                <OptionButton
-                  key={opt.value}
-                  label={opt.label}
-                  selected={data.ondeTreina === opt.value}
-                  visible={visible}
-                  delay={0.12 + i * 0.06}
-                  onClick={() => selectAndAdvance("ondeTreina", opt.value)}
-                />
-              ))}
-            </div>
           </>
         )}
 
