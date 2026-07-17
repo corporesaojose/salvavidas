@@ -13,7 +13,7 @@ const inputClass =
 
 const QUESTIONS = [
   { key: "problemaSaude" as const, icon: "🩺", title: "Tem algum problema de saúde?", placeholder: "Qual?" },
-  { key: "doresLesoes" as const, icon: "🦴", title: "Tem dores ou lesões?", placeholder: "Qual?" },
+  { key: "doresLesoes" as const, icon: "🦴", title: "Tem ou já teve alguma lesão?", placeholder: "Qual?" },
   { key: "cirurgiaRecente" as const, icon: "🏥", title: "Fez alguma cirurgia recente?", placeholder: "Qual?" },
   {
     key: "historicoFamiliar" as const,
