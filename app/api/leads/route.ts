@@ -14,6 +14,11 @@ interface LeadPayload {
   formState: FormState;
   result: MissaoResult;
   telefone?: string;
+  event_id?: string;
+  fbp?: string;
+  fbc?: string;
+  external_id?: string;
+  client_user_agent?: string;
 }
 
 function labelFor<T extends string>(
@@ -57,6 +62,42 @@ function saudeItemLabel(item: FormState["saude"]["problemaSaude"]): string | boo
   return item.tem && item.descricao ? `Sim — ${item.descricao}` : true;
 }
 
+async function sendMetaCAPI(data: {
+  nome: string;
+  telefone?: string;
+  event_id?: string;
+  fbp?: string;
+  fbc?: string;
+  external_id?: string;
+  client_ip_address?: string;
+  client_user_agent?: string;
+}) {
+  const url = process.env.N8N_CAPI_URL;
+  if (!url) return;
+
+  try {
+    await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event_name: "Lead",
+        event_time: Math.floor(Date.now() / 1000),
+        event_id: data.event_id,
+        page_url: "https://salvavidas.corporetraininggym.com.br/",
+        nome: data.nome,
+        telefone: data.telefone,
+        fbp: data.fbp,
+        fbc: data.fbc,
+        external_id: data.external_id,
+        client_ip_address: data.client_ip_address,
+        client_user_agent: data.client_user_agent,
+      }),
+    });
+  } catch (err) {
+    console.error("Erro ao enviar Lead ao Meta CAPI:", err);
+  }
+}
+
 async function sendN8nWebhook(payload: Record<string, unknown>) {
   const url = process.env.N8N_WEBHOOK_URL;
   if (!url) return;
@@ -74,7 +115,14 @@ async function sendN8nWebhook(payload: Record<string, unknown>) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { formState, result, telefone } = (await req.json()) as LeadPayload;
+    const { formState, result, telefone, event_id, fbp, fbc, external_id, client_user_agent } = (await req.json()) as LeadPayload;
+
+    // IP real via headers Cloudflare (disponível no servidor)
+    const clientIp =
+      req.headers.get("cf-connecting-ip") ??
+      req.headers.get("x-real-ip") ??
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      undefined;
 
     if (!formState?.identificacao?.nomeCompleto) {
       return NextResponse.json({ error: "Dados incompletos" }, { status: 400 });
@@ -125,6 +173,18 @@ export async function POST(req: NextRequest) {
     );
 
     const leadId = insertResult.insertId;
+
+    // Espelho servidor → Meta CAPI (em paralelo, não bloqueia resposta)
+    sendMetaCAPI({
+      nome: formState.identificacao.nomeCompleto,
+      telefone: telefone || undefined,
+      event_id: event_id || undefined,
+      fbp: fbp || undefined,
+      fbc: fbc || undefined,
+      external_id: external_id || undefined,
+      client_ip_address: clientIp,
+      client_user_agent: client_user_agent || req.headers.get("user-agent") || undefined,
+    });
 
     await sendN8nWebhook({
       lead_id: leadId,

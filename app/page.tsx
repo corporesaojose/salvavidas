@@ -63,10 +63,38 @@ export default function MissaoPage() {
     setResult(computed);
     goTo("result");
 
+    // Sinais do browser para CAPI (fbp, fbc, external_id, event_id)
+    const getCookie = (name: string) =>
+      document.cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`))?.[1];
+    const fbp = getCookie("_fbp");
+    const fbc = getCookie("_fbc");
+
+    let externalId = localStorage.getItem("_meta_eid");
+    if (!externalId) {
+      externalId = crypto.randomUUID();
+      localStorage.setItem("_meta_eid", externalId);
+    }
+
+    const eventId = crypto.randomUUID();
+
+    // Dispara Lead via pixel do browser (deduplicado pelo event_id)
+    if (typeof window !== "undefined" && (window as { fbq?: Function }).fbq) {
+      (window as { fbq?: Function }).fbq!("track", "Lead", {}, { eventID: eventId });
+    }
+
     fetch("/api/leads/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ formState, result: computed, telefone }),
+      body: JSON.stringify({
+        formState,
+        result: computed,
+        telefone,
+        event_id: eventId,
+        fbp,
+        fbc,
+        external_id: externalId,
+        client_user_agent: navigator.userAgent,
+      }),
     }).catch((err) => console.error("Erro ao salvar lead:", err));
   }
 
