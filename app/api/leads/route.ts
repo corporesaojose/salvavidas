@@ -64,6 +64,7 @@ function saudeItemLabel(item: FormState["saude"]["problemaSaude"]): string | boo
 
 async function sendMetaCAPI(data: {
   nome: string;
+  email?: string;
   telefone?: string;
   event_id?: string;
   fbp?: string;
@@ -85,6 +86,7 @@ async function sendMetaCAPI(data: {
         event_id: data.event_id,
         page_url: "https://salvavidas.corporetraininggym.com.br/",
         nome: data.nome,
+        email: data.email,
         telefone: data.telefone,
         fbp: data.fbp,
         fbc: data.fbc,
@@ -131,16 +133,17 @@ export async function POST(req: NextRequest) {
     const pool = getDbPool();
     const [insertResult] = await pool.query<import("mysql2/promise").ResultSetHeader>(
       `INSERT INTO leads (
-        nome_completo, idade, bairro, nome_indicador,
+        nome_completo, email, idade, bairro, nome_indicador,
         historico_treino, o_que_praticava, qual_atividade,
         objetivos, outro_objetivo, dias_semana, horario_preferencia,
         habito_stress, habito_sono, habito_alimentacao, habito_agua, habito_energia, horas_sentado,
         problema_saude, dores_lesoes, cirurgia_recente, historico_familiar,
         por_que_agora, nivel_motivacao, desafios, outro_desafio, desejos_futuros, outro_desejo_futuro,
         score_prontidao, nivel_prontidao
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         formState.identificacao.nomeCompleto,
+        formState.identificacao.email,
         Number(formState.identificacao.idade),
         formState.identificacao.bairro,
         formState.identificacao.nomeIndicador,
@@ -177,6 +180,7 @@ export async function POST(req: NextRequest) {
     // Espelho servidor → Meta CAPI (em paralelo, não bloqueia resposta)
     sendMetaCAPI({
       nome: formState.identificacao.nomeCompleto,
+      email: formState.identificacao.email || undefined,
       telefone: telefone || undefined,
       event_id: event_id || undefined,
       fbp: fbp || undefined,
@@ -189,6 +193,7 @@ export async function POST(req: NextRequest) {
     await sendN8nWebhook({
       lead_id: leadId,
       telefone: telefone || null,
+      email: formState.identificacao.email,
       nome: formState.identificacao.nomeCompleto,
       idade: Number(formState.identificacao.idade),
       bairro: formState.identificacao.bairro,

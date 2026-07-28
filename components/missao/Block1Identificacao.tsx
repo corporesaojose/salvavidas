@@ -12,6 +12,7 @@ const inputClass =
 
 const QUESTIONS = [
   { key: "nomeCompleto" as const, icon: "👋", title: "Qual o seu nome completo?", placeholder: "Seu nome completo", type: "text" as const },
+  { key: "email" as const, icon: "📧", title: "Qual o seu melhor e-mail?", placeholder: "seuemail@exemplo.com", type: "email" as const },
   { key: "idade" as const, icon: "🎂", title: "Qual a sua idade?", placeholder: "Sua idade", type: "number" as const },
   { key: "bairro" as const, icon: "📍", title: "Em qual bairro você mora?", placeholder: "Seu bairro", type: "text" as const },
   { key: "nomeIndicador" as const, icon: "💚", title: "Quem te convidou para essa missão?", subtext: "Nome e sobrenome de quem te deu o voucher", placeholder: "Nome e sobrenome", type: "text" as const },
@@ -33,7 +34,11 @@ export default function Block1Identificacao({
   const q = QUESTIONS[subStep];
   const value = data[q.key];
   const isValid =
-    q.type === "number" ? /^\d+$/.test(value.trim()) && Number(value) > 0 : value.trim().length > 1;
+    q.type === "number"
+      ? /^\d+$/.test(value.trim()) && Number(value) > 0
+      : q.type === "email"
+        ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
+        : value.trim().length > 1;
 
   function handleNext() {
     setTouched(true);
@@ -74,7 +79,7 @@ export default function Block1Identificacao({
         >
           <input
             className={inputClass}
-            type={q.type === "number" ? "number" : "text"}
+            type={q.type === "number" ? "number" : q.type === "email" ? "email" : "text"}
             inputMode={q.type === "number" ? "numeric" : undefined}
             value={value}
             autoFocus

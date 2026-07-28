@@ -16,7 +16,7 @@ import CalculatingScreen from "@/components/missao/CalculatingScreen";
 import ResultScreen from "@/components/missao/ResultScreen";
 
 const INITIAL_STATE: FormState = {
-  identificacao: { nomeCompleto: "", idade: "", bairro: "", nomeIndicador: "" },
+  identificacao: { nomeCompleto: "", email: "", idade: "", bairro: "", nomeIndicador: "" },
   historicoTreino: {
     historico: null,
     oQuePraticava: "",

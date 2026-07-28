@@ -38,6 +38,7 @@ export type Desafio =
 
 export interface IdentificacaoData {
   nomeCompleto: string;
+  email: string;
   idade: string;
   bairro: string;
   nomeIndicador: string;
