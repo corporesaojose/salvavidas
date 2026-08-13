@@ -13,6 +13,9 @@ export function getDbPool() {
       waitForConnections: true,
       connectionLimit: 5,
     });
+    pool.on("connection", (connection) => {
+      connection.query("SET time_zone = '-03:00'");
+    });
   }
   return pool;
 }
