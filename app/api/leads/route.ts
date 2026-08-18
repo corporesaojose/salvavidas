@@ -10,6 +10,14 @@ import {
   DESEJOS_FUTUROS,
 } from "@/lib/missao/questions";
 
+// O painel da Hostinger nem sempre persiste/injeta variáveis de ambiente novas no
+// processo Node. Sem fallback, o lead grava no banco e o disparo pro n8n vira um
+// no-op silencioso — planilha, Slack e documento nunca acontecem, e não sobra rastro.
+const N8N_WEBHOOK_URL_FALLBACK =
+  "https://n8n.corporetraininggym.com.br/webhook/formulario-salva-vidas";
+const N8N_CAPI_URL_FALLBACK =
+  "https://n8n.corporetraininggym.com.br/webhook/salva-vidas-lead";
+
 interface LeadPayload {
   formState: FormState;
   result: MissaoResult;
@@ -73,11 +81,13 @@ async function sendMetaCAPI(data: {
   client_ip_address?: string;
   client_user_agent?: string;
 }) {
-  const url = process.env.N8N_CAPI_URL;
-  if (!url) return;
+  const url = process.env.N8N_CAPI_URL || N8N_CAPI_URL_FALLBACK;
+  if (!process.env.N8N_CAPI_URL) {
+    console.warn("[leads] N8N_CAPI_URL ausente no ambiente — usando fallback:", url);
+  }
 
   try {
-    await fetch(url, {
+    const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -95,23 +105,41 @@ async function sendMetaCAPI(data: {
         client_user_agent: data.client_user_agent,
       }),
     });
+    if (!res.ok) {
+      console.error(
+        "[leads] Meta CAPI respondeu",
+        res.status,
+        await res.text().catch(() => "")
+      );
+    }
   } catch (err) {
     console.error("Erro ao enviar Lead ao Meta CAPI:", err);
   }
 }
 
 async function sendN8nWebhook(payload: Record<string, unknown>) {
-  const url = process.env.N8N_WEBHOOK_URL;
-  if (!url) return;
+  const url = process.env.N8N_WEBHOOK_URL || N8N_WEBHOOK_URL_FALLBACK;
+  if (!process.env.N8N_WEBHOOK_URL) {
+    console.warn("[leads] N8N_WEBHOOK_URL ausente no ambiente — usando fallback:", url);
+  }
 
   try {
-    await fetch(url, {
+    const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+    if (!res.ok) {
+      console.error(
+        "[leads] Webhook n8n respondeu",
+        res.status,
+        await res.text().catch(() => ""),
+        "— lead_id:",
+        payload.lead_id
+      );
+    }
   } catch (err) {
-    console.error("Erro ao notificar webhook N8N:", err);
+    console.error("Erro ao notificar webhook N8N — lead_id:", payload.lead_id, err);
   }
 }
 
