@@ -161,17 +161,18 @@ export async function POST(req: NextRequest) {
     const pool = getDbPool();
     const [insertResult] = await pool.query<import("mysql2/promise").ResultSetHeader>(
       `INSERT INTO leads (
-        nome_completo, email, idade, bairro, nome_indicador,
+        nome_completo, email, telefone, idade, bairro, nome_indicador,
         historico_treino, o_que_praticava, qual_atividade,
         objetivos, outro_objetivo, dias_semana, horario_preferencia,
         habito_stress, habito_sono, habito_alimentacao, habito_agua, habito_energia, horas_sentado,
         problema_saude, dores_lesoes, cirurgia_recente, historico_familiar,
         por_que_agora, nivel_motivacao, desafios, outro_desafio, desejos_futuros, outro_desejo_futuro,
         score_prontidao, nivel_prontidao
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         formState.identificacao.nomeCompleto,
         formState.identificacao.email,
+        telefone || null,
         Number(formState.identificacao.idade),
         formState.identificacao.bairro,
         formState.identificacao.nomeIndicador,
