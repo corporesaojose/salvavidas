@@ -117,7 +117,9 @@ async function sendMetaCAPI(data: {
   }
 }
 
-async function sendN8nWebhook(payload: Record<string, unknown>) {
+type ResultadoEnvio = { ok: true } | { ok: false; erro: string };
+
+async function sendN8nWebhook(payload: Record<string, unknown>): Promise<ResultadoEnvio> {
   const url = process.env.N8N_WEBHOOK_URL || N8N_WEBHOOK_URL_FALLBACK;
   if (!process.env.N8N_WEBHOOK_URL) {
     console.warn("[leads] N8N_WEBHOOK_URL ausente no ambiente — usando fallback:", url);
@@ -130,16 +132,20 @@ async function sendN8nWebhook(payload: Record<string, unknown>) {
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
+      const corpo = await res.text().catch(() => "");
       console.error(
         "[leads] Webhook n8n respondeu",
         res.status,
-        await res.text().catch(() => ""),
+        corpo,
         "— lead_id:",
         payload.lead_id
       );
+      return { ok: false, erro: ("HTTP " + res.status + " " + corpo).slice(0, 500) };
     }
+    return { ok: true };
   } catch (err) {
     console.error("Erro ao notificar webhook N8N — lead_id:", payload.lead_id, err);
+    return { ok: false, erro: String(err instanceof Error ? err.message : err).slice(0, 500) };
   }
 }
 
@@ -219,7 +225,7 @@ export async function POST(req: NextRequest) {
       client_user_agent: client_user_agent || req.headers.get("user-agent") || undefined,
     });
 
-    await sendN8nWebhook({
+    const envio = await sendN8nWebhook({
       lead_id: leadId,
       telefone: telefone || null,
       email: formState.identificacao.email,
@@ -254,6 +260,21 @@ export async function POST(req: NextRequest) {
       score_prontidao: result.scoreProntidao,
       nivel: result.nivelLabel,
     });
+
+    // O disparo pro n8n e o unico caminho ate o ChatGuru, a planilha, a Pacto
+    // e o Slack. Quando ele falha, o lead grava e a cliente ve a tela de
+    // resultado normalmente — sem esta marca, nada no sistema denuncia que o
+    // fluxo parou aqui (foi o que aconteceu com o lead 93 em 28/08/2026).
+    // A falha do UPDATE nao pode derrubar a resposta: o lead ja esta salvo.
+    try {
+      await pool.query("UPDATE leads SET webhook_status = ?, webhook_erro = ? WHERE id = ?", [
+        envio.ok ? "ok" : "erro",
+        envio.ok ? null : envio.erro,
+        leadId,
+      ]);
+    } catch (err) {
+      console.error("[leads] Falha ao registrar webhook_status — lead_id:", leadId, err);
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {
