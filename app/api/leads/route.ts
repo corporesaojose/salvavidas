@@ -149,6 +149,61 @@ async function sendN8nWebhook(payload: Record<string, unknown>): Promise<Resulta
   }
 }
 
+// Canal #falhas-do-sistema (C0BRQ4JAQBX). A URL do webhook e um segredo — quem
+// a tem posta no canal — e este repositorio e publico, entao ela fica so na env
+// var, sem fallback no codigo (diferente das URLs do n8n acima, que sao
+// endpoints, nao credenciais).
+//
+// Limite conhecido: quando a causa da falha e a saida de rede do processo estar
+// quebrada (foi o que perdeu o lead 93), esta chamada tambem nao sai. O registro
+// confiavel continua sendo a coluna webhook_status; isto aqui e o aviso rapido
+// para o caso mais comum, em que o n8n responde erro mas a rede esta boa.
+async function alertarFalhaNoSlack(dados: {
+  leadId: number;
+  nome: string;
+  telefone: string | null;
+  erro: string;
+}): Promise<boolean> {
+  const url = process.env.SLACK_ALERT_WEBHOOK_URL;
+  if (!url) {
+    console.error(
+      "[leads] SLACK_ALERT_WEBHOOK_URL ausente — falha do lead",
+      dados.leadId,
+      "nao foi alertada no Slack"
+    );
+    return false;
+  }
+
+  const texto = [
+    "🚨 *LEAD NÃO PROCESSADO — MISSÃO SALVA VIDAS*",
+    "",
+    "<@U0BDG7CD1GR>",
+    "",
+    "*Lead:* " + dados.nome + " (id " + dados.leadId + ")",
+    "*Telefone:* " + (dados.telefone || "não informado"),
+    "*Erro:* " + dados.erro,
+    "",
+    "O lead está salvo no banco, mas o n8n não recebeu o disparo: sem mensagem no ChatGuru, sem planilha, sem Pacto e sem relatório do coordenador.",
+    "Para reprocessar: SELECT * FROM leads WHERE id = " + dados.leadId + ";",
+  ].join("\n");
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: texto }),
+    });
+    if (!res.ok) {
+      console.error("[leads] Slack de alerta respondeu", res.status, "— lead_id:", dados.leadId);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("[leads] Falha ao alertar no Slack — lead_id:", dados.leadId, err);
+    return false;
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { formState, result, telefone, event_id, fbp, fbc, external_id, client_user_agent } = (await req.json()) as LeadPayload;
@@ -266,10 +321,23 @@ export async function POST(req: NextRequest) {
     // resultado normalmente — sem esta marca, nada no sistema denuncia que o
     // fluxo parou aqui (foi o que aconteceu com o lead 93 em 28/08/2026).
     // A falha do UPDATE nao pode derrubar a resposta: o lead ja esta salvo.
+    // Quando nem o alerta sai, isso tambem vai pra linha: um lead marcado
+    // "erro" sem ninguem avisado no Slack precisa ser visivel como tal.
+    let erroRegistrado: string | null = null;
+    if (!envio.ok) {
+      const alertado = await alertarFalhaNoSlack({
+        leadId,
+        nome: formState.identificacao.nomeCompleto,
+        telefone: telefone || null,
+        erro: envio.erro,
+      });
+      erroRegistrado = (envio.erro + (alertado ? "" : " | alerta Slack nao enviado")).slice(0, 500);
+    }
+
     try {
       await pool.query("UPDATE leads SET webhook_status = ?, webhook_erro = ? WHERE id = ?", [
         envio.ok ? "ok" : "erro",
-        envio.ok ? null : envio.erro,
+        erroRegistrado,
         leadId,
       ]);
     } catch (err) {
