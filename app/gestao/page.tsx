@@ -10,7 +10,16 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Gestão de Free Pass | Corpore",
-  robots: { index: false, follow: false },
+  // Página interna: fora de buscador, de cache e de resumo de IA.
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+    noarchive: true,
+    nosnippet: true,
+    noimageindex: true,
+    googleBot: { index: false, follow: false, noimageindex: true },
+  },
 };
 
 export default async function GestaoPage() {
