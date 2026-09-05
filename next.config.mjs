@@ -16,6 +16,12 @@ const nextConfig = {
             key: "X-Robots-Tag",
             value: "noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate",
           },
+          // O LiteSpeed da Hostinger guarda resposta de GET dinâmico pela URL exata e
+          // serve a versão velha por tempo indeterminado — foi o que fez o relatório
+          // aparecer vazio depois do primeiro sync. Sem isto, a página só atualiza
+          // quando alguém acrescenta uma query string na mão.
+          { key: "Cache-Control", value: "no-store, no-cache, must-revalidate, max-age=0" },
+          { key: "Pragma", value: "no-cache" },
         ],
       },
     ];
