@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import type { RowDataPacket } from "mysql2";
 import { NextRequest, NextResponse } from "next/server";
 import { getDbPool } from "@/lib/db";
 import { garantirSchema } from "@/lib/gestao/schema";
@@ -38,6 +39,41 @@ function tokenConfere(request: NextRequest) {
 function data(valor: unknown) {
   const texto = String(valor || "").slice(0, 10);
   return /^\d{4}-\d{2}-\d{2}$/.test(texto) ? texto : null;
+}
+
+// Diagnóstico: o que o processo que responde agora enxerga no banco. Serve para
+// separar "não gravou" de "gravou e a página está servindo resposta velha".
+export async function GET(request: NextRequest) {
+  if (!tokenConfere(request)) {
+    return NextResponse.json({ ok: false, erro: "Token inválido." }, { status: 401 });
+  }
+
+  await garantirSchema();
+  const pool = getDbPool();
+
+  const [totais] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS total, MIN(inicio_vigencia) AS primeiro,
+            MAX(inicio_vigencia) AS ultimo, MAX(atualizado_em) AS atualizado
+     FROM freepass_vouchers`
+  );
+  const [porPlano] = await pool.query<RowDataPacket[]>(
+    `SELECT plano, COUNT(*) AS total FROM freepass_vouchers GROUP BY plano`
+  );
+  const [registros] = await pool.query<RowDataPacket[]>(
+    `SELECT
+       (SELECT COUNT(*) FROM freepass_anotacoes) AS anotacoes,
+       (SELECT COUNT(*) FROM freepass_exclusoes) AS exclusoes,
+       (SELECT COUNT(*) FROM freepass_pendencias) AS pendencias`
+  );
+
+  return NextResponse.json({
+    ok: true,
+    banco: process.env.DB_NAME || null,
+    vouchers: totais[0],
+    porPlano,
+    registros: registros[0],
+    agora: new Date().toISOString(),
+  });
 }
 
 export async function POST(request: NextRequest) {
