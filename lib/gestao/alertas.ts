@@ -176,7 +176,7 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
 
   // Dentro do card, o mais urgente primeiro: quem já engajou e sumiu, depois quem tem
   // menos dias de passe pela frente.
-  for (const card of porPessoa.values()) {
+  for (const card of Array.from(porPessoa.values())) {
     card.itens.sort((a, b) => {
       if (a.tipo !== b.tipo) return a.tipo === "regrediu" ? -1 : 1;
       return a.diasRestantes - b.diasRestantes;
