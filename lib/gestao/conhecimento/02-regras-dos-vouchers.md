@@ -11,7 +11,7 @@
 
 ## Relançamento faz parte do processo
 
-Quando a pessoa não consegue vir por imprevisto, a consultora **lança o passe de novo**
+Quando a pessoa não consegue vir por imprevisto, a consultora **lança o voucher de novo**
 para que ela viva a experiência. Isso é intencional e não deve ser tratado como erro nem
 como duplicidade.
 
@@ -31,9 +31,9 @@ e a divergência em si é um problema de cadastro a ser corrigido.
   e nenhum período PL na Pacto. A pessoa treina, some do relatório e ninguém cobra o
   follow-up. Aconteceu com Andréa Morikawa, Rosana Fonseca, Simone Camillo e Miguel
   Cassio Castro entre julho e agosto de 2026.
-- **Passe sem treinador web vinculado** — sem TW no cadastro, ninguém é dono da
+- **Voucher sem treinador web vinculado** — sem TW no cadastro, ninguém é dono da
   experiência daquela pessoa. Em maio-agosto de 2026 eram 25 dos 133 vouchers de 15 dias.
-- **Cadastro duplicado** — a mesma pessoa em dois cadastros, o passe indo para um e o
+- **Cadastro duplicado** — a mesma pessoa em dois cadastros, o voucher indo para um e o
   acompanhamento para outro (caso Isabella Craveiri / Craveiro).
 - **Cadastro só com primeiro nome** — impossível conferir depois; três cadastros
   "Janaina" no período.

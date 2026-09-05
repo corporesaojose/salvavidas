@@ -229,20 +229,20 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
             <span className="amarelo">{pessoasFecharam} fecharam plano.</span>
           </h1>
           <p>
-            Cada linha é um passe livre lançado na Pacto, com a frequência real registrada na
+            Cada linha é um voucher lançado na Pacto, com a frequência real registrada na
             catraca durante a vigência e o contrato fechado depois dele. Quem recebeu o passe mais
             de uma vez aparece uma vez por lançamento, e conta como uma pessoa só nas taxas de
             conversão.
           </p>
           <p className="fonte">
-            Fonte: API Pacto (passe livre, catraca, contratos e vínculos)
+            Fonte: API Pacto (período de acesso, catraca, contratos e vínculos)
             {dados.atualizadoEm ? ` · dados atualizados em ${dados.atualizadoEm}` : ""}
           </p>
         </header>
 
         {dados.vouchers.length === 0 ? (
           <section className="vazio-total">
-            <h2>Nenhum free pass carregado ainda</h2>
+            <h2>Nenhum voucher carregado ainda</h2>
             <p>
               O relatório enche quando a rotina do n8n rodar a varredura da Pacto e enviar os dados
               para <code>/api/gestao/sync</code>.
@@ -254,7 +254,7 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
           <div>
             <span className="n">{pessoas}</span>
             <span className="rot">
-              pessoas receberam free pass — {validos.length} vouchers lançados
+              pessoas receberam voucher — {validos.length} vouchers lançados
             </span>
           </div>
           <div className="destaque">
@@ -283,7 +283,7 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
             <div>
               <h2>Pendências da conferência</h2>
               <p className="sub">
-                Nomes da lista do comercial que não têm passe livre lançado no período. Cada um foi
+                Nomes da lista do comercial que não têm voucher lançado no período. Cada um foi
                 checado na Pacto — cadastro, treino montado, período de acesso e catraca. Marque
                 conforme for resolvendo; fica salvo para toda a equipe.
               </p>
@@ -694,7 +694,7 @@ function Ficha({
           </div>
 
           <div className="secao-gaveta">
-            <h3>Este free pass</h3>
+            <h3>Este voucher</h3>
             <dl className="ficha">
               {campo("Voucher", voucher.plano)}
               {campo("Vigência", `${dataBr(voucher.inicioVigencia)} a ${dataBr(voucher.fimVigencia)}`)}
@@ -798,7 +798,7 @@ function DialogoAcao({
           <>
             <h2>Restaurar lançamento</h2>
             <p>
-              O free pass de <b>{voucher?.nome}</b> volta para as contas do relatório.
+              O voucher de <b>{voucher?.nome}</b> volta para as contas do relatório.
             </p>
           </>
         ) : (

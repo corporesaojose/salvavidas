@@ -1,4 +1,4 @@
-// Conferência da lista enviada pelo comercial: os nomes que não têm passe livre
+// Conferência da lista enviada pelo comercial: os nomes que não têm voucher
 // lançado no período, checados um a um na Pacto (cadastro, treino montado, período de
 // acesso e catraca). Cada item vira uma tarefa que a consultora fecha no relatório.
 export interface ItemPendencia {
@@ -19,12 +19,12 @@ export const PENDENCIAS: GrupoPendencia[] = [
     grupo: "Voucher no nome, nunca lançado",
     alta: true,
     oque:
-      'O cadastro diz "voucher" e o treino está montado, mas não existe período de Passe Livre na Pacto — lançar o passe ou registrar por que não foi concedido.',
+      'O cadastro diz "voucher" e o treino está montado, mas não existe período de Passe Livre na Pacto — lançar o voucher ou registrar por que não foi concedido.',
     itens: [
       { id: "pl-morikawa", quem: "Andréa Morikawa", detalhe: "mat. 017057 · treino montado · 2 entradas em julho" },
       { id: "pl-rosana", quem: "Rosana Fonseca", detalhe: "mat. 017181 · treino montado · 2 entradas em agosto" },
       { id: "pl-simone", quem: "Simone Camillo", detalhe: "mat. 017128 · treino montado · nenhuma entrada" },
-      { id: "pl-miguel", quem: "Miguel Cassio Castro", detalhe: "mat. 017125 · treino montado · passe só lançado em 01/09" },
+      { id: "pl-miguel", quem: "Miguel Cassio Castro", detalhe: "mat. 017125 · treino montado · voucher só lançado em 01/09" },
     ],
   },
   {
@@ -42,8 +42,8 @@ export const PENDENCIAS: GrupoPendencia[] = [
     grupo: "Resolvidos por outro caminho",
     oque: "Não precisam de voucher — só de confirmação e de arrumar o cadastro.",
     itens: [
-      { id: "ok-thiago", quem: "Thiago Furlanetto Wronski", detalhe: "mat. 017139 · fechou plano sem free pass, 6 treinos até 02/09" },
-      { id: "ok-isabella", quem: "Isabella Figueiredo Craveiri", detalhe: "cadastro duplicado — o passe caiu em Craveiro/013964; unificar" },
+      { id: "ok-thiago", quem: "Thiago Furlanetto Wronski", detalhe: "mat. 017139 · fechou plano sem voucher, 6 treinos até 02/09" },
+      { id: "ok-isabella", quem: "Isabella Figueiredo Craveiri", detalhe: "cadastro duplicado — o voucher caiu em Craveiro/013964; unificar" },
     ],
   },
   {

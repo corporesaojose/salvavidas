@@ -2,12 +2,13 @@ import type { RowDataPacket } from "mysql2";
 import { getDbPool } from "@/lib/db";
 import { garantirSchema } from "@/lib/gestao/schema";
 import { TOTAL_PENDENCIAS } from "@/lib/gestao/pendencias";
+import { rotuloPlano } from "@/lib/gestao/planos";
 
 /**
  * Retrato para a leitura semanal dos sócios. Só agregado — nome de cliente fica no
  * relatório, não no resumo.
  *
- * Conversão é sempre por PESSOA, nunca por lançamento: relançar o passe para quem teve
+ * Conversão é sempre por PESSOA, nunca por lançamento: relançar o voucher para quem teve
  * imprevisto é parte do processo (ver conhecimento/02-regras-dos-vouchers.md), e contar
  * por lançamento inflaria o número.
  */
@@ -110,7 +111,7 @@ export async function montarResumo(): Promise<ResumoGestao> {
     if (Number(linha.fechou) === 1) agrupado[plano].fecharam++;
   }
 
-  // Passes correndo agora: é sobre eles que dá para agir esta semana.
+  // Vouchers correndo agora: é sobre eles que dá para agir esta semana.
   const agora = dia(hoje);
   const [emCurso] = await pool.query<RowDataPacket[]>(
     `SELECT
@@ -144,7 +145,7 @@ export async function montarResumo(): Promise<ResumoGestao> {
     mesAtual,
     mesAnterior,
     porTipoNoMes: Object.keys(agrupado).map((plano) => ({
-      plano,
+      plano: rotuloPlano(plano),
       pessoas: agrupado[plano].pessoas,
       fecharam: agrupado[plano].fecharam,
       conversao: agrupado[plano].pessoas

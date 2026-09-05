@@ -7,7 +7,7 @@ let schemaPronto = false;
 
 const TABELAS = [
   // Um voucher por lançamento. A chave repete a que o relatório usa (matrícula +
-  // início da vigência), porque a mesma pessoa recebe mais de um passe.
+  // início da vigência), porque a mesma pessoa recebe mais de um voucher.
   `CREATE TABLE IF NOT EXISTS freepass_vouchers (
     chave VARCHAR(64) NOT NULL PRIMARY KEY,
     matricula VARCHAR(20) NOT NULL,

@@ -9,7 +9,7 @@ import "./gestao.css";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Gestão de Free Pass | Corpore",
+  title: "Gestão de Vouchers | Corpore",
   // Página interna: fora de buscador, de cache e de resumo de IA.
   robots: {
     index: false,

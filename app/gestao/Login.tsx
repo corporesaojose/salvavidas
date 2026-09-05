@@ -37,7 +37,7 @@ export default function Login() {
     <main className="gestao gestao-login">
       <form onSubmit={entrar}>
         <span className="eyebrow">Corpore Training Gym</span>
-        <h1>Gestão de Free Pass</h1>
+        <h1>Gestão de Vouchers</h1>
         <p className="sub">
           Relatório interno da equipe comercial. Seu nome assina as anotações e as pendências que
           você resolver.

@@ -2,6 +2,7 @@ import type { RowDataPacket } from "mysql2";
 import { getDbPool } from "@/lib/db";
 import { garantirSchema } from "@/lib/gestao/schema";
 import { acharPessoa } from "@/lib/gestao/pessoas";
+import { rotuloPlano, termoNaFrase } from "@/lib/gestao/planos";
 
 /**
  * Alerta só existe quando ainda dá para mudar o desfecho.
@@ -9,7 +10,7 @@ import { acharPessoa } from "@/lib/gestao/pessoas";
  * A régua vem da apuração de mai-ago/2026 (lib/gestao/conhecimento/03-referencias.md):
  * quem termina o voucher com 1-2 treinos fecha 18,5%; com 3-5, 32,4%; com 6+, 52,3%.
  * Ou seja, o que converte é mudar de faixa — e só dá para mudar de faixa enquanto o
- * passe está correndo. Passou na catraca, venceu ontem e fechou plano são registro:
+ * voucher está correndo. Passou na catraca, venceu ontem e fechou plano são registro:
  * ficam no relatório e no resumo semanal, não interrompem ninguém.
  */
 
@@ -79,7 +80,7 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
   await garantirSchema();
   const pool = getDbPool();
 
-  // Só passes correndo hoje, e nunca os que a equipe excluiu do relatório.
+  // Só vouchers correndo hoje, e nunca os que a equipe excluiu do relatório.
   const [linhas] = await pool.query<RowDataPacket[]>(
     `SELECT v.* FROM freepass_vouchers v
      LEFT JOIN freepass_exclusoes e ON e.chave = v.chave
@@ -109,7 +110,7 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
       matricula: linha.matricula as string,
       nome: linha.nome as string,
       fotoUrl: (linha.foto_url as string) || null,
-      plano: linha.plano as string,
+      plano: rotuloPlano(linha.plano as string),
       diaDaVigencia,
       duracao,
       diasRestantes,
@@ -130,7 +131,7 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
         ...base,
         tipo: "regrediu",
         chanceAtual: treinos >= 6 ? "52%" : "32%",
-        acao: `Já tinha rotina e parou há ${diasSemVir} dias. Ligar hoje: com ${diasRestantes} dia(s) de passe ainda dá para retomar.`,
+        acao: `Já tinha rotina e parou há ${diasSemVir} dias. Ligar hoje: ainda restam ${diasRestantes} dia(s) de acesso.`,
       });
       continue;
     }
@@ -146,7 +147,7 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
         chanceAtual: treinos === 0 ? "7%" : "18%",
         acao:
           treinos === 0
-            ? `Metade do voucher passou sem nenhum treino. Marcar o primeiro treino nos próximos ${Math.min(diasRestantes, 3)} dias — sem isso, fecha em 7% dos casos.`
+            ? `Metade d${termoNaFrase(linha.plano as string)} passou sem nenhum treino. Marcar o primeiro treino nos próximos ${Math.min(diasRestantes, 3)} dias — sem isso, fecha em 7% dos casos.`
             : `Um treino em ${diaDaVigencia} dias. Dois treinos nesta semana levam a chance de 18% para 32%.`,
       });
     }
@@ -175,7 +176,7 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
   }
 
   // Dentro do card, o mais urgente primeiro: quem já engajou e sumiu, depois quem tem
-  // menos dias de passe pela frente.
+  // menos dias de voucher pela frente.
   for (const card of Array.from(porPessoa.values())) {
     card.itens.sort((a, b) => {
       if (a.tipo !== b.tipo) return a.tipo === "regrediu" ? -1 : 1;
