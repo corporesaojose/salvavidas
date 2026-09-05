@@ -24,6 +24,8 @@ interface VoucherEntrada {
   dataContrato?: string | null;
   lancadoPor?: string | null;
   situacaoAtual?: string | null;
+  primeiroAcesso?: string | null;
+  ultimoAcesso?: string | null;
 }
 
 function tokenConfere(request: NextRequest) {
@@ -116,8 +118,8 @@ export async function POST(request: NextRequest) {
       `INSERT INTO freepass_vouchers
         (chave, matricula, nome, foto_url, treinador_web, coordenador, consultora,
          inicio_vigencia, fim_vigencia, plano, frequencia, fechou_plano, plano_fechado,
-         data_contrato, lancado_por, situacao_atual)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         data_contrato, lancado_por, situacao_atual, primeiro_acesso, ultimo_acesso)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          nome = VALUES(nome),
          foto_url = VALUES(foto_url),
@@ -131,7 +133,9 @@ export async function POST(request: NextRequest) {
          plano_fechado = VALUES(plano_fechado),
          data_contrato = VALUES(data_contrato),
          lancado_por = VALUES(lancado_por),
-         situacao_atual = VALUES(situacao_atual)`,
+         situacao_atual = VALUES(situacao_atual),
+         primeiro_acesso = VALUES(primeiro_acesso),
+         ultimo_acesso = VALUES(ultimo_acesso)`,
       [
         chave,
         matricula,
@@ -149,6 +153,8 @@ export async function POST(request: NextRequest) {
         data(v.dataContrato),
         v.lancadoPor || null,
         v.situacaoAtual || null,
+        data(v.primeiroAcesso),
+        data(v.ultimoAcesso),
       ]
     );
     gravados++;

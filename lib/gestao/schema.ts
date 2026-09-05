@@ -25,6 +25,8 @@ const TABELAS = [
     data_contrato DATE NULL,
     lancado_por VARCHAR(120) NULL,
     situacao_atual VARCHAR(60) NULL,
+    primeiro_acesso DATE NULL,
+    ultimo_acesso DATE NULL,
     atualizado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_inicio (inicio_vigencia),
     INDEX idx_matricula (matricula)
@@ -53,6 +55,25 @@ const TABELAS = [
     nota TEXT NULL,
     criado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  // Quem já foi alertado, para não repetir o mesmo aviso todo dia e para medir depois
+  // se quem recebeu alerta converteu mais do que a linha de base de mai-ago/2026.
+  `CREATE TABLE IF NOT EXISTS freepass_alertas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    chave VARCHAR(64) NOT NULL,
+    tipo VARCHAR(24) NOT NULL,
+    destinatario VARCHAR(80) NOT NULL,
+    enviado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unico_por_dia (chave, tipo, destinatario),
+    INDEX idx_chave (chave)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+];
+
+// Colunas acrescentadas depois da primeira versão: CREATE TABLE IF NOT EXISTS não
+// altera tabela existente, então cada uma entra por ALTER tolerante a "já existe".
+const COLUNAS_NOVAS = [
+  "ALTER TABLE freepass_vouchers ADD COLUMN primeiro_acesso DATE NULL",
+  "ALTER TABLE freepass_vouchers ADD COLUMN ultimo_acesso DATE NULL",
 ];
 
 export async function garantirSchema() {
@@ -60,6 +81,16 @@ export async function garantirSchema() {
   const pool = getDbPool();
   for (const sql of TABELAS) {
     await pool.query(sql);
+  }
+  for (const sql of COLUNAS_NOVAS) {
+    try {
+      await pool.query(sql);
+    } catch (erro) {
+      // ER_DUP_FIELDNAME: a coluna já existe, que é o caso normal a partir da segunda
+      // execução. Qualquer outro erro precisa aparecer.
+      const codigo = (erro as { code?: string }).code;
+      if (codigo !== "ER_DUP_FIELDNAME") throw erro;
+    }
   }
   schemaPronto = true;
 }
