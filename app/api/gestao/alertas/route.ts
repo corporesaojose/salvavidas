@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { jaAlertados, montarAlertasDoDia, registrarEnvio } from "@/lib/gestao/alertas";
+import { taxasPorFaixa } from "@/lib/gestao/referencias";
 
 export const dynamic = "force-dynamic";
 
@@ -44,8 +45,13 @@ export async function GET(request: NextRequest) {
 
   if (marcar && cards.length) await registrarEnvio(cards);
 
+  // As reguas vao junto: da para conferir de onde saiu cada porcentagem do card.
+  const hoje = new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
+  const taxas = await taxasPorFaixa(hoje);
+
   return NextResponse.json({
     ok: true,
+    taxas,
     cards,
     totalPessoas: cards.length,
     totalItens: cards.reduce((soma, c) => soma + c.itens.length, 0),

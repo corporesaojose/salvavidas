@@ -3,6 +3,7 @@ import { getDbPool } from "@/lib/db";
 import { garantirSchema } from "@/lib/gestao/schema";
 import { acharPessoa } from "@/lib/gestao/pessoas";
 import { rotuloPlano, termoNaFrase } from "@/lib/gestao/planos";
+import { comoTexto, faixaDe, taxasPorFaixa } from "@/lib/gestao/referencias";
 
 /**
  * Alerta só existe quando ainda dá para mudar o desfecho.
@@ -91,6 +92,9 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
     [hoje, hoje]
   );
 
+  // A regua sai do historico da propria Corpore, nao de numero fixo no codigo.
+  const taxas = await taxasPorFaixa(hoje);
+
   const itens: ItemAlerta[] = [];
 
   for (const linha of linhas) {
@@ -130,7 +134,7 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
       itens.push({
         ...base,
         tipo: "regrediu",
-        chanceAtual: treinos >= 6 ? "52%" : "32%",
+        chanceAtual: comoTexto(taxas[faixaDe(treinos)]),
         acao: `Já tinha rotina e parou há ${diasSemVir} dias. Sugestão: entrar em contato, ainda restam ${diasRestantes} dia(s) de acesso.`,
       });
       continue;
@@ -144,11 +148,11 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
       itens.push({
         ...base,
         tipo: "travou",
-        chanceAtual: treinos === 0 ? "7%" : "18%",
+        chanceAtual: comoTexto(taxas[faixaDe(treinos)]),
         acao:
           treinos === 0
-            ? `Metade d${termoNaFrase(linha.plano as string)} passou sem nenhum treino. Sugestão: marcar o primeiro treino nos próximos ${Math.min(diasRestantes, 3)} dias — sem isso, fecha em 7% dos casos.`
-            : `Um treino em ${diaDaVigencia} dias. Sugestão: dois treinos nesta semana levam a chance de 18% para 32%.`,
+            ? `Metade d${termoNaFrase(linha.plano as string)} passou sem nenhum treino. Sugestão: marcar o primeiro treino nos próximos ${Math.min(diasRestantes, 3)} dias — sem isso, fecha em ${comoTexto(taxas.nenhum)} dos casos.`
+            : `Um treino em ${diaDaVigencia} dias. Sugestão: dois treinos nesta semana levam a chance de ${comoTexto(taxas["1a2"])} para ${comoTexto(taxas["3a5"])}.`,
       });
     }
   }
