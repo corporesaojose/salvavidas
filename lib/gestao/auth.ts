@@ -26,6 +26,17 @@ export function senhaConfere(candidata: string) {
   return crypto.timingSafeEqual(a, b);
 }
 
+// O n8n não faz login: ele se identifica pelo header x-sync-token, com o mesmo valor
+// da variável GESTAO_SYNC_TOKEN. Vale para as rotas de sync (escrita e plano do dia).
+export function tokenSyncConfere(recebido: string) {
+  const esperado = process.env.GESTAO_SYNC_TOKEN || "";
+  if (!esperado) return false;
+  const a = Buffer.from(recebido || "");
+  const b = Buffer.from(esperado);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
 function assinar(payload: string) {
   return crypto.createHmac("sha256", segredo()).update(payload).digest("base64url");
 }

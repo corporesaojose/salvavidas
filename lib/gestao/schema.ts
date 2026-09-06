@@ -74,6 +74,11 @@ const TABELAS = [
 const COLUNAS_NOVAS = [
   "ALTER TABLE freepass_vouchers ADD COLUMN primeiro_acesso DATE NULL",
   "ALTER TABLE freepass_vouchers ADD COLUMN ultimo_acesso DATE NULL",
+  // As duas abaixo existem para o sync incremental: com a data de lançamento dá para
+  // reconhecer um voucher já conhecido logo na varredura (antes de enriquecer), e com
+  // o código da pessoa não é preciso repetir a busca de cadastro na Pacto todo dia.
+  "ALTER TABLE freepass_vouchers ADD COLUMN data_lancamento DATE NULL",
+  "ALTER TABLE freepass_vouchers ADD COLUMN codigo_pessoa INT NULL",
 ];
 
 export async function garantirSchema() {

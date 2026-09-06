@@ -1,13 +1,14 @@
-import crypto from "crypto";
 import type { RowDataPacket } from "mysql2";
 import { NextRequest, NextResponse } from "next/server";
 import { getDbPool } from "@/lib/db";
+import { tokenSyncConfere } from "@/lib/gestao/auth";
 import { garantirSchema } from "@/lib/gestao/schema";
 
 export const dynamic = "force-dynamic";
 
-// Quem alimenta esta rota é o workflow do n8n que varre a Pacto dia a dia. Ele manda
-// a janela inteira a cada rodada; aqui é upsert, então reprocessar é seguro.
+// Quem alimenta esta rota é o workflow do n8n. Ele manda só o que ainda muda (ver
+// /api/gestao/sync/plano), então o payload é parcial por natureza: campo ausente
+// significa "não fui buscar", nunca "apagou". O UPDATE abaixo preserva o que já existe.
 interface VoucherEntrada {
   matricula?: string;
   nome?: string;
@@ -15,6 +16,8 @@ interface VoucherEntrada {
   treinadorWeb?: string | null;
   coordenador?: string | null;
   consultora?: string | null;
+  dataLancamento?: string | null;
+  codigoPessoa?: number | string | null;
   inicioVigencia?: string;
   fimVigencia?: string;
   plano?: string;
@@ -29,13 +32,7 @@ interface VoucherEntrada {
 }
 
 function tokenConfere(request: NextRequest) {
-  const esperado = process.env.GESTAO_SYNC_TOKEN || "";
-  if (!esperado) return false;
-  const recebido = request.headers.get("x-sync-token") || "";
-  const a = Buffer.from(recebido);
-  const b = Buffer.from(esperado);
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(a, b);
+  return tokenSyncConfere(request.headers.get("x-sync-token") || "");
 }
 
 function data(valor: unknown) {
@@ -117,25 +114,28 @@ export async function POST(request: NextRequest) {
     await pool.query(
       `INSERT INTO freepass_vouchers
         (chave, matricula, nome, foto_url, treinador_web, coordenador, consultora,
-         inicio_vigencia, fim_vigencia, plano, frequencia, fechou_plano, plano_fechado,
-         data_contrato, lancado_por, situacao_atual, primeiro_acesso, ultimo_acesso)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         data_lancamento, codigo_pessoa, inicio_vigencia, fim_vigencia, plano, frequencia,
+         fechou_plano, plano_fechado, data_contrato, lancado_por, situacao_atual,
+         primeiro_acesso, ultimo_acesso)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
-         nome = VALUES(nome),
-         foto_url = VALUES(foto_url),
-         treinador_web = VALUES(treinador_web),
-         coordenador = VALUES(coordenador),
-         consultora = VALUES(consultora),
+         nome = COALESCE(NULLIF(VALUES(nome), ''), nome),
+         foto_url = COALESCE(VALUES(foto_url), foto_url),
+         treinador_web = COALESCE(VALUES(treinador_web), treinador_web),
+         coordenador = COALESCE(VALUES(coordenador), coordenador),
+         consultora = COALESCE(VALUES(consultora), consultora),
+         data_lancamento = COALESCE(VALUES(data_lancamento), data_lancamento),
+         codigo_pessoa = COALESCE(VALUES(codigo_pessoa), codigo_pessoa),
          fim_vigencia = VALUES(fim_vigencia),
-         plano = VALUES(plano),
-         frequencia = VALUES(frequencia),
-         fechou_plano = VALUES(fechou_plano),
-         plano_fechado = VALUES(plano_fechado),
-         data_contrato = VALUES(data_contrato),
-         lancado_por = VALUES(lancado_por),
-         situacao_atual = VALUES(situacao_atual),
-         primeiro_acesso = VALUES(primeiro_acesso),
-         ultimo_acesso = VALUES(ultimo_acesso)`,
+         plano = COALESCE(NULLIF(VALUES(plano), ''), plano),
+         frequencia = GREATEST(VALUES(frequencia), frequencia),
+         fechou_plano = GREATEST(VALUES(fechou_plano), fechou_plano),
+         plano_fechado = COALESCE(VALUES(plano_fechado), plano_fechado),
+         data_contrato = COALESCE(VALUES(data_contrato), data_contrato),
+         lancado_por = COALESCE(VALUES(lancado_por), lancado_por),
+         situacao_atual = COALESCE(VALUES(situacao_atual), situacao_atual),
+         primeiro_acesso = COALESCE(VALUES(primeiro_acesso), primeiro_acesso),
+         ultimo_acesso = COALESCE(VALUES(ultimo_acesso), ultimo_acesso)`,
       [
         chave,
         matricula,
@@ -144,6 +144,8 @@ export async function POST(request: NextRequest) {
         v.treinadorWeb || null,
         v.coordenador || null,
         v.consultora || null,
+        data(v.dataLancamento),
+        Number(v.codigoPessoa) || null,
         inicio,
         fim,
         String(v.plano || "").slice(0, 40),
