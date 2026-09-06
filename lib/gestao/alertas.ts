@@ -131,7 +131,7 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
         ...base,
         tipo: "regrediu",
         chanceAtual: treinos >= 6 ? "52%" : "32%",
-        acao: `Já tinha rotina e parou há ${diasSemVir} dias. Ligar hoje: ainda restam ${diasRestantes} dia(s) de acesso.`,
+        acao: `Já tinha rotina e parou há ${diasSemVir} dias. Sugestão: entrar em contato, ainda restam ${diasRestantes} dia(s) de acesso.`,
       });
       continue;
     }
@@ -147,8 +147,8 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
         chanceAtual: treinos === 0 ? "7%" : "18%",
         acao:
           treinos === 0
-            ? `Metade d${termoNaFrase(linha.plano as string)} passou sem nenhum treino. Marcar o primeiro treino nos próximos ${Math.min(diasRestantes, 3)} dias — sem isso, fecha em 7% dos casos.`
-            : `Um treino em ${diaDaVigencia} dias. Dois treinos nesta semana levam a chance de 18% para 32%.`,
+            ? `Metade d${termoNaFrase(linha.plano as string)} passou sem nenhum treino. Sugestão: marcar o primeiro treino nos próximos ${Math.min(diasRestantes, 3)} dias — sem isso, fecha em 7% dos casos.`
+            : `Um treino em ${diaDaVigencia} dias. Sugestão: dois treinos nesta semana levam a chance de 18% para 32%.`,
       });
     }
   }
