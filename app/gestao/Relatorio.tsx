@@ -37,6 +37,57 @@ function iniciais(nome: string) {
   return ((partes[0]?.[0] || "") + (partes[partes.length - 1]?.[0] || "")).toUpperCase();
 }
 
+/**
+ * Uma linha do relatório. Quando a mesma pessoa recebeu o voucher mais de uma vez,
+ * `lancamentos` guarda todos e os campos de exibição vêm do mais recente.
+ */
+type Linha = Voucher & { chaves: string[]; lancamentos: Voucher[] };
+
+function comoLinha(v: Voucher): Linha {
+  return { ...v, chaves: [v.chave], lancamentos: [v] };
+}
+
+/** Entre dois lançamentos da mesma pessoa, o contrato que vale é o mais recente fechado. */
+function contratoQueVale(a: Voucher, b: Voucher): Voucher | null {
+  if (a.fechou && b.fechou) return (b.dataContrato || "") >= (a.dataContrato || "") ? b : a;
+  if (a.fechou) return a;
+  if (b.fechou) return b;
+  return null;
+}
+
+/**
+ * Quem teve mais de um período lançado vira uma linha só: exibe o último lançamento,
+ * soma os acessos de todos e conta uma única conversão.
+ */
+function consolidarPorPessoa(lista: Voucher[]): Linha[] {
+  const mapa = new Map<string, Linha>();
+
+  lista.forEach((v) => {
+    const atual = mapa.get(v.matricula);
+    if (!atual) {
+      mapa.set(v.matricula, comoLinha(v));
+      return;
+    }
+    const ultimo = v.inicioVigencia >= atual.inicioVigencia ? v : atual;
+    const contrato = contratoQueVale(atual, v);
+    mapa.set(v.matricula, {
+      ...ultimo,
+      frequencia: atual.frequencia + v.frequencia,
+      fechou: Boolean(contrato),
+      planoFechado: contrato ? contrato.planoFechado : null,
+      dataContrato: contrato ? contrato.dataContrato : null,
+      chaves: [...atual.chaves, v.chave],
+      lancamentos: [...atual.lancamentos, v].sort((x, y) =>
+        x.inicioVigencia.localeCompare(y.inicioVigencia)
+      ),
+    });
+  });
+
+  return Array.from(mapa.values()).sort(
+    (a, b) => a.inicioVigencia.localeCompare(b.inicioVigencia) || a.nome.localeCompare(b.nome)
+  );
+}
+
 function Avatar({ voucher, tamanho }: { voucher: Voucher; tamanho?: "grande" }) {
   const classe = `avatar${tamanho === "grande" ? " avatar-grande" : ""}`;
   if (voucher.fotoUrl) {
@@ -147,23 +198,14 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
   const semEntrada = validos.filter((v) => v.frequencia === 0).length;
 
   const doTipo = validos.filter((v) => v.plano === tipo);
-  const porPessoa = useMemo(() => {
-    const mapa: Record<string, { dias: number; fechou: boolean; lancamentos: number }> = {};
-    doTipo.forEach((v) => {
-      const p = (mapa[v.matricula] = mapa[v.matricula] || { dias: 0, fechou: false, lancamentos: 0 });
-      p.dias += v.frequencia;
-      p.lancamentos += 1;
-      if (v.fechou) p.fechou = true;
-    });
-    return Object.values(mapa);
-  }, [doTipo]);
+  const porPessoa = consolidarPorPessoa(doTipo);
 
   const fecharamTipo = porPessoa.filter((p) => p.fechou).length;
   const mediaDias = porPessoa.length
-    ? porPessoa.reduce((s, p) => s + p.dias, 0) / porPessoa.length
+    ? porPessoa.reduce((s, p) => s + p.frequencia, 0) / porPessoa.length
     : 0;
-  const zerosTipo = porPessoa.filter((p) => p.dias === 0).length;
-  const relancamentos = porPessoa.filter((p) => p.lancamentos > 1).length;
+  const zerosTipo = porPessoa.filter((p) => p.frequencia === 0).length;
+  const relancamentos = porPessoa.filter((p) => p.lancamentos.length > 1).length;
 
   const faixas = [
     { rot: "nenhum dia", ok: (f: number) => f === 0 },
@@ -175,27 +217,33 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
   /* ---------- tabela ---------- */
 
   const mostrandoExcluidos = filtro === "excluidos";
-  const baseTabela = dados.vouchers
-    .filter((v) => v.plano === tipo)
-    .filter((v) => (mostrandoExcluidos ? exclusaoPorChave[v.chave] : !exclusaoPorChave[v.chave]));
+  // Excluídos aparecem lançamento a lançamento — a exclusão é por lançamento, não por pessoa.
+  const baseTabela = mostrandoExcluidos
+    ? dados.vouchers.filter((v) => v.plano === tipo && exclusaoPorChave[v.chave]).map(comoLinha)
+    : porPessoa;
 
   const termo = busca.toLowerCase();
   const visiveis = baseTabela.filter((v) => {
     if (mes !== "todos" && mesDe(v.inicioVigencia) !== mes) return false;
     if (filtro === "fechou" && !v.fechou) return false;
     if (filtro === "zero" && v.frequencia !== 0) return false;
-    if (filtro === "anotado" && !(anotacoesPorChave[v.chave] || []).length) return false;
+    if (filtro === "anotado" && !v.chaves.some((c) => (anotacoesPorChave[c] || []).length))
+      return false;
     if (termo && !`${v.nome} ${v.matricula} ${v.treinadorWeb || ""}`.toLowerCase().includes(termo))
       return false;
     return true;
   });
 
-  const maxFreq = Math.max(...dados.vouchers.map((v) => v.frequencia), 1);
+  const maxFreq = Math.max(...baseTabela.map((v) => v.frequencia), 1);
   const excluidosNoTipo = dados.vouchers.filter(
     (v) => v.plano === tipo && exclusaoPorChave[v.chave]
   ).length;
 
-  const voucherDaFicha = ficha ? dados.vouchers.find((v) => v.chave === ficha) : null;
+  const voucherDaFicha = ficha
+    ? baseTabela.find((v) => v.chave === ficha) ||
+      dados.vouchers.filter((v) => v.chave === ficha).map(comoLinha)[0] ||
+      null
+    : null;
 
   /* ---------- checklist ---------- */
 
@@ -229,10 +277,10 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
             <span className="amarelo">{pessoasFecharam} fecharam plano.</span>
           </h1>
           <p>
-            Cada linha é um voucher lançado na Pacto, com a frequência real registrada na
-            catraca durante a vigência e o contrato fechado depois dele. Quem recebeu o passe mais
-            de uma vez aparece uma vez por lançamento, e conta como uma pessoa só nas taxas de
-            conversão.
+            Cada linha é um cliente com voucher lançado na Pacto, com a frequência real registrada
+            na catraca durante a vigência e o contrato fechado depois dele. Quem recebeu o passe
+            mais de uma vez aparece uma vez só — com a vigência do último lançamento e a soma dos
+            acessos de todos —, e conta como uma conversão só.
           </p>
           <p className="fonte">
             Fonte: API Pacto (período de acesso, catraca, contratos e vínculos)
@@ -363,7 +411,9 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
               onClick={() => setTipo(t.plano)}
             >
               {t.rotulo}
-              <span className="qtd">{validos.filter((v) => v.plano === t.plano).length}</span>
+              <span className="qtd">
+                {new Set(validos.filter((v) => v.plano === t.plano).map((v) => v.matricula)).size}
+              </span>
             </button>
           ))}
         </nav>
@@ -403,7 +453,7 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
               <Barras
                 grupos={meses
                   .map((m) => {
-                    const doMes = doTipo.filter((v) => mesDe(v.inicioVigencia) === m);
+                    const doMes = porPessoa.filter((v) => mesDe(v.inicioVigencia) === m);
                     return {
                       rot: rotuloMes(m),
                       total: doMes.length,
@@ -413,7 +463,7 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
                   .filter((g) => g.total > 0)}
               />
               <div className="legenda">
-                <span><i style={{ background: "var(--accent-wash)" }} /> concedidos</span>
+                <span><i style={{ background: "var(--accent-wash)" }} /> clientes</span>
                 <span><i style={{ background: "var(--won)" }} /> fecharam plano</span>
               </div>
             </div>
@@ -423,7 +473,7 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
               <Barras
                 grupos={faixas
                   .map((f) => {
-                    const naFaixa = doTipo.filter((v) => f.ok(v.frequencia));
+                    const naFaixa = porPessoa.filter((v) => f.ok(v.frequencia));
                     return {
                       rot: f.rot,
                       total: naFaixa.length,
@@ -433,7 +483,7 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
                   .filter((g) => g.total > 0)}
               />
               <div className="legenda">
-                <span><i style={{ background: "var(--accent-wash)" }} /> vouchers na faixa</span>
+                <span><i style={{ background: "var(--accent-wash)" }} /> clientes na faixa</span>
                 <span><i style={{ background: "var(--won)" }} /> fecharam plano</span>
               </div>
             </div>
@@ -442,7 +492,9 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
 
         {/* ---------- tabela ---------- */}
         <section className="tabela-bloco">
-          <h2>{tipoAtual.rotulo} — lançamento a lançamento</h2>
+          <h2>
+            {tipoAtual.rotulo} — {mostrandoExcluidos ? "lançamentos excluídos" : "cliente a cliente"}
+          </h2>
 
           <div className="controles">
             <div className="grupo" role="group" aria-label="Filtrar por mês">
@@ -506,11 +558,11 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
               <tbody>
                 {visiveis.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="vazio">Nenhum lançamento com esses filtros.</td>
+                    <td colSpan={7} className="vazio">Nenhum cliente com esses filtros.</td>
                   </tr>
                 ) : (
                   visiveis.map((v) => {
-                    const notas = anotacoesPorChave[v.chave] || [];
+                    const notas = v.chaves.flatMap((c) => anotacoesPorChave[c] || []);
                     const fora = Boolean(exclusaoPorChave[v.chave]);
                     return (
                       <tr key={v.chave} className={`${v.fechou ? "fechou " : ""}${fora ? "excluida" : ""}`}>
@@ -529,9 +581,26 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
                         </td>
                         <td className="vig">
                           {dataBr(v.inicioVigencia)} – {dataBr(v.fimVigencia)}
+                          {v.lancamentos.length > 1 ? (
+                            <span className="detalhe-cel">
+                              último de {v.lancamentos.length} períodos
+                            </span>
+                          ) : null}
                         </td>
                         <td>
-                          <span className={v.frequencia === 0 ? "freq zero" : "freq"}>
+                          <span
+                            className={v.frequencia === 0 ? "freq zero" : "freq"}
+                            title={
+                              v.lancamentos.length > 1
+                                ? v.lancamentos
+                                    .map(
+                                      (l) =>
+                                        `${dataBr(l.inicioVigencia)}–${dataBr(l.fimVigencia)}: ${l.frequencia}`
+                                    )
+                                    .join(" · ")
+                                : undefined
+                            }
+                          >
                             <span className="num">{v.frequencia}</span>
                             <span className="mini">
                               <i style={{ width: `${(v.frequencia / maxFreq) * 100}%` }} />
@@ -589,7 +658,8 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
           </div>
 
           <p className="eyebrow">
-            {visiveis.length} de {baseTabela.length} vouchers de {tipoAtual.curto} ·{" "}
+            {visiveis.length} de {baseTabela.length}{" "}
+            {mostrandoExcluidos ? "lançamentos" : "clientes"} de {tipoAtual.curto} ·{" "}
             {visiveis.filter((v) => v.fechou).length} fecharam plano
             {excluidosNoTipo && !mostrandoExcluidos
               ? ` · ${excluidosNoTipo} excluído${excluidosNoTipo > 1 ? "s" : ""} fora da conta`
@@ -604,7 +674,9 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
       {voucherDaFicha ? (
         <Ficha
           voucher={voucherDaFicha}
-          anotacoes={anotacoesPorChave[voucherDaFicha.chave] || []}
+          anotacoes={voucherDaFicha.chaves
+            .flatMap((c) => anotacoesPorChave[c] || [])
+            .sort((a, b) => a.id - b.id)}
           exclusao={exclusaoPorChave[voucherDaFicha.chave]}
           onFechar={() => setFicha(null)}
           onAnotar={(texto) => registrar({ acao: "anotar", chave: voucherDaFicha.chave, texto })}
@@ -642,7 +714,7 @@ function Ficha({
   onFechar,
   onAnotar,
 }: {
-  voucher: Voucher;
+  voucher: Linha;
   anotacoes: DadosGestao["anotacoes"];
   exclusao?: DadosGestao["exclusoes"][number];
   onFechar: () => void;
@@ -694,11 +766,21 @@ function Ficha({
           </div>
 
           <div className="secao-gaveta">
-            <h3>Este voucher</h3>
+            <h3>{voucher.lancamentos.length > 1 ? "Vouchers deste cliente" : "Este voucher"}</h3>
             <dl className="ficha">
               {campo("Voucher", voucher.plano)}
-              {campo("Vigência", `${dataBr(voucher.inicioVigencia)} a ${dataBr(voucher.fimVigencia)}`)}
-              {campo("Frequência", `${voucher.frequencia} ${voucher.frequencia === 1 ? "dia" : "dias"} de treino`)}
+              {campo(
+                voucher.lancamentos.length > 1 ? "Último período" : "Vigência",
+                `${dataBr(voucher.inicioVigencia)} a ${dataBr(voucher.fimVigencia)}`
+              )}
+              {campo(
+                "Frequência",
+                `${voucher.frequencia} ${voucher.frequencia === 1 ? "dia" : "dias"} de treino${
+                  voucher.lancamentos.length > 1
+                    ? ` — soma de ${voucher.lancamentos.length} períodos`
+                    : ""
+                }`
+              )}
               {campo(
                 "Fechou plano",
                 voucher.fechou
@@ -707,6 +789,20 @@ function Ficha({
               )}
               {campo("Lançado por", voucher.lancadoPor)}
             </dl>
+            {voucher.lancamentos.length > 1 ? (
+              <ul className="periodos">
+                {voucher.lancamentos.map((l) => (
+                  <li key={l.chave}>
+                    <span>
+                      {dataBr(l.inicioVigencia)} a {dataBr(l.fimVigencia)}
+                    </span>
+                    <b>
+                      {l.frequencia} {l.frequencia === 1 ? "dia" : "dias"}
+                    </b>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
 
           <div className="secao-gaveta">

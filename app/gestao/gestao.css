@@ -474,6 +474,10 @@
 
 .gestao .secao-gaveta h3 { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
 
+.gestao .periodos { list-style: none; margin: 12px 0 0; padding: 10px 12px; background: var(--surface-sunk); border-radius: 8px; display: flex; flex-direction: column; gap: 6px; }
+.gestao .periodos li { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--muted); }
+.gestao .periodos b { color: var(--ink); font-weight: 600; }
+
 .gestao .notas { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
 .gestao .nota { background: var(--surface-sunk); border-radius: 8px; padding: 10px 12px; }
 .gestao .nota p { margin: 0 0 4px; font-size: 14px; color: var(--ink); white-space: pre-wrap; }
