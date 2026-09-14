@@ -272,17 +272,6 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
               </button>
             </span>
           </div>
-          <h1>
-            {pessoas} pessoas ganharam acesso.
-            <br />
-            <span className="amarelo">{pessoasFecharam} fecharam plano.</span>
-          </h1>
-          <p>
-            Cada linha é um cliente com voucher lançado na Pacto, com a frequência real registrada
-            na catraca durante a vigência e o contrato fechado depois dele. Quem recebeu o passe
-            mais de uma vez aparece uma vez só — com a vigência do último lançamento e a soma dos
-            acessos de todos —, e conta como uma conversão só.
-          </p>
           <p className="fonte">
             Fonte: API Pacto (período de acesso, catraca, contratos e vínculos)
             {dados.atualizadoEm ? ` · dados atualizados em ${dados.atualizadoEm}` : ""}
