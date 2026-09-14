@@ -293,7 +293,7 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
           <div>
             <span className="n">{pessoas}</span>
             <span className="rot">
-              pessoas receberam voucher — {validos.length} vouchers lançados
+              pessoas receberam voucher nos últimos 6 meses
             </span>
           </div>
           <div className="destaque">
