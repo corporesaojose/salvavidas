@@ -138,6 +138,7 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
   const [busca, setBusca] = useState("");
   const [ficha, setFicha] = useState<string | null>(null);
   const [dialogo, setDialogo] = useState<Dialogo>(null);
+  const [verResolvidas, setVerResolvidas] = useState(false);
 
   const anotacoesPorChave = useMemo(() => {
     const mapa: Record<string, DadosGestao["anotacoes"]> = {};
@@ -354,16 +355,20 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
             </div>
           </div>
 
+          {/* Resolvidas saem da lista; o botão abaixo traz de volta para consultar ou reabrir. */}
+          {resolvidas < TOTAL_PENDENCIAS || verResolvidas ? (
           <div className="grupos">
             {PENDENCIAS.map((g) => {
               const feitas = g.itens.filter((i) => pendenciaPorId[i.id]).length;
+              const itens = verResolvidas ? g.itens : g.itens.filter((i) => !pendenciaPorId[i.id]);
+              if (!itens.length) return null;
               return (
                 <div className={`grupo-tarefa${g.alta ? " alta" : ""}`} key={g.grupo}>
                   <h3>
                     {g.grupo} <span className="cont">{feitas}/{g.itens.length}</span>
                   </h3>
                   <p className="oque">{g.oque}</p>
-                  {g.itens.map((item) => {
+                  {itens.map((item) => {
                     const feito = pendenciaPorId[item.id];
                     return (
                       <div className={`tarefa${feito ? " feita" : ""}`} key={item.id}>
@@ -398,6 +403,13 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
               );
             })}
           </div>
+          ) : null}
+
+          {resolvidas > 0 ? (
+            <button className="ver-resolvidas" onClick={() => setVerResolvidas((v) => !v)}>
+              {verResolvidas ? "Esconder as resolvidas" : `Ver as ${resolvidas} resolvidas`}
+            </button>
+          ) : null}
         </section>
 
         {/* ---------- abas ---------- */}

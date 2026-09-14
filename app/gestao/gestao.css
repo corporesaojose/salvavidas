@@ -230,6 +230,21 @@
 .gestao .tarefa.feita .quem { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--rule-strong); }
 .gestao .tarefa .assinatura { display: block; font-size: 12.5px; color: var(--won); margin-top: 2px; }
 
+.gestao button.ver-resolvidas {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.gestao button.ver-resolvidas:hover { color: var(--ink); }
+
 /* ---------- abas ---------- */
 
 .gestao .abas { display: flex; gap: 2px; border-bottom: 2px solid var(--ink); flex-wrap: wrap; }
