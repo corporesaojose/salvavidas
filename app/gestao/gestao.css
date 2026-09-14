@@ -93,6 +93,15 @@
 }
 .gestao button.sair:hover { color: var(--ink); }
 
+.gestao h1 {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(36px, 5vw, 56px);
+  line-height: 0.95;
+  letter-spacing: 0.005em;
+  margin: 4px 0 0;
+}
+
 .gestao .fonte {
   margin: 0;
   font-size: 12px;

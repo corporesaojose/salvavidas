@@ -272,6 +272,7 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
               </button>
             </span>
           </div>
+          <h1>Dashboard Vouchers</h1>
           <p className="fonte">
             Fonte: API Pacto (período de acesso, catraca, contratos e vínculos)
             {dados.atualizadoEm ? ` · dados atualizados em ${dados.atualizadoEm}` : ""}
