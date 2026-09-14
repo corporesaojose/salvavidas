@@ -258,7 +258,7 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
       <div className="page">
         <header>
           <div className="topo-linha">
-            <span className="eyebrow">Corpore Training Gym · Free pass</span>
+            <span className="eyebrow">Corpore · Free pass</span>
             <span className="sessao">
               {usuario}
               <button
