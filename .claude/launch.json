@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "design-preview",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/servir-design-preview.js"],
+      "port": 3222
     }
   ]
 }
