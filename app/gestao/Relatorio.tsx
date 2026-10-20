@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { DadosGestao, Voucher } from "@/lib/gestao/dados";
 import { PENDENCIAS, TOTAL_PENDENCIAS } from "@/lib/gestao/pendencias";
+import Visoes from "./Visoes";
 
 const MESES: Record<string, string> = {
   "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril",
@@ -127,7 +128,16 @@ type Dialogo =
   | { tipo: "resolver"; id: string }
   | null;
 
-export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usuario: string }) {
+export default function Relatorio({
+  dados,
+  usuario,
+  hoje,
+}: {
+  dados: DadosGestao;
+  usuario: string;
+  /** Dia de hoje em São Paulo, calculado no servidor: no cliente a data divergiria. */
+  hoje: string;
+}) {
   const router = useRouter();
   const [salvando, iniciarSalvamento] = useTransition();
   const [erroApi, setErroApi] = useState("");
@@ -320,6 +330,8 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
             <span className="rot">vouchers sem nenhuma entrada na catraca</span>
           </div>
         </section>
+
+        <Visoes vouchers={validos} hoje={hoje} />
 
         {/* ---------- checklist ---------- */}
         <section className="tarefas">

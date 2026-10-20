@@ -18,6 +18,37 @@ como duplicidade.
 Consequência para qualquer número: **conversão se conta por pessoa, nunca por
 lançamento**. Uma pessoa com três janelas e um contrato é uma conversão, não três.
 
+## As três leituras, e qual data manda em cada uma
+
+Decidido com o Fernando em 20/10/2026, depois de a lista de fechamentos do comercial não
+bater com a do relatório — a diferença era só de régua. A regra que organiza tudo:
+**toda métrica declara qual data está usando**. Estão no `/gestao`, na seção "Três
+leituras do mesmo dado", e implementadas em `lib/gestao/visoes.ts`.
+
+| Leitura | Data que manda | Para que serve |
+|---|---|---|
+| **Coorte** | início do voucher | mede a qualidade da experiência; o fechamento volta e credita o mês em que ela começou, então mês recente ainda sobe |
+| **Mês corrente** | a vigência inteira | operação: quem esteve em pé no mês e quantos contratos saíram; não serve para comparar meses |
+| **Comissão** | data do contrato | fecha o mês e **congela** — nunca recalcula, senão se pagaria duas vezes |
+
+Os três desempates:
+
+- **Janela de crédito de 45 dias.** Contrato assinado até 45 dias depois do fim da
+  vigência é conversão daquele voucher; depois disso é venda nova e aparece só na
+  comissão. Caso de referência: Eliza Castro, voucher em julho e contrato em 02/10.
+- **A comissão vai para o treinador web do voucher mais recente antes do contrato** —
+  quem estava com a pessoa na hora da decisão. Professor (PR) é acompanhamento, não
+  crédito.
+- **Relançamento reinicia a coorte.** Vale o início do voucher mais recente, e
+  lançamentos encadeados até 45 dias um do outro são a mesma oportunidade; intervalo
+  maior é oportunidade nova (Lucimara Fernandes tem uma em maio e outra em julho, e o
+  contrato de 09/08 pertence só à de julho, embora a coluna `data_contrato` esteja
+  gravada nas três linhas dela).
+
+Duas coisas que a leitura precisa saber: a régua conferida à mão no 3º trimestre é só
+sobre **7 e 15 dias** (87 pessoas, 31 fechamentos, 36%); e **vigência de um dia só não é
+voucher** — é o passe de catraca do dia da assinatura, fica fora das contas.
+
 ## O que a duração real quer dizer
 
 A duração vale pelo período de acesso na Pacto, não pelo que está escrito no nome do

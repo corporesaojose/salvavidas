@@ -41,5 +41,8 @@ export default async function GestaoPage() {
   if (!sessao) return <Login />;
 
   const dados = await carregarDados();
-  return <Relatorio dados={dados} usuario={sessao.nome} />;
+  // A data vem do servidor: a janela de crédito dos vouchers depende de "hoje", e deixar o
+  // cliente calcular faria o HTML da hidratação divergir na virada do dia.
+  const hoje = new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
+  return <Relatorio dados={dados} usuario={sessao.nome} hoje={hoje} />;
 }
