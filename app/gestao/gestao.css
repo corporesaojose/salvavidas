@@ -304,7 +304,14 @@
 .gestao .regua { font-size: 13.5px; color: var(--ink-soft); max-width: 86ch; margin: 0; padding-left: 14px; border-left: 3px solid var(--accent); }
 .gestao .regua b { color: var(--ink); font-weight: 600; }
 
-.gestao .visoes tbody tr.no-periodo { background: linear-gradient(90deg, var(--accent-wash), transparent 60%); }
+/* Fecha o trimestre dentro da leitura mês a mês: é onde se confere o apurado à mão. */
+.gestao .visoes tbody tr.subtotal td { background: var(--surface-sunk); font-weight: 600; border-bottom: 2px solid var(--ink); }
+.gestao .visoes tbody tr.subtotal .mat { color: var(--ink); font-weight: 600; }
+
+/* Cada mês da comissão é um bloco: ela fecha e congela por mês, não por trimestre. */
+.gestao .mes-comissao { display: flex; flex-direction: column; gap: 12px; }
+.gestao .mes-comissao h3 { font-family: var(--titulo); font-weight: 600; font-size: 17px; margin: 0; display: flex; align-items: baseline; gap: 10px; }
+.gestao .mes-comissao h3 .cont { font-family: var(--body); font-size: 12px; font-weight: 500; color: var(--muted); }
 .gestao .visoes .conversao { font-weight: 600; font-variant-numeric: tabular-nums; }
 .gestao .visoes .aberta { color: var(--cold); font-size: 13.5px; }
 .gestao .nota-fora { font-size: 12.5px; color: var(--muted); max-width: 72ch; margin: 0; }

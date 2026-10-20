@@ -1,14 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import type { Voucher } from "@/lib/gestao/dados";
 import { rotuloPlano } from "@/lib/gestao/planos";
+import type { LinhaComissao } from "@/lib/gestao/visoes";
 import {
   JANELA_CREDITO_DIAS,
   TIPOS_EXPERIENCIA,
   coortePorMes,
   comissaoPorTreinador,
-  mesesComContrato,
   movimentoMensal,
   prepararVisoes,
   totalCoorte,
@@ -19,6 +19,11 @@ import {
  * As três leituras de voucher na tela. Toda a regra está em lib/gestao/visoes.ts: aqui
  * não se decide nada, só se mostra — e cada visão declara, na própria interface, qual
  * data está usando, porque foi a confusão entre elas que gerou o problema.
+ *
+ * A coorte se lê mês a mês (o trimestre entra como subtotal, para conferir contra o que
+ * já foi apurado à mão) e a comissão se lê por trimestre com os meses separados: ela
+ * fecha e congela por mês, então somar o trimestre num número só esconderia o que se
+ * paga.
  */
 
 const MESES_CURTOS: Record<string, string> = {
@@ -26,9 +31,20 @@ const MESES_CURTOS: Record<string, string> = {
   "07": "jul", "08": "ago", "09": "set", "10": "out", "11": "nov", "12": "dez",
 };
 
+const MESES_LONGOS: Record<string, string> = {
+  "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril",
+  "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto",
+  "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro",
+};
+
 function rotuloDoMes(mes: string) {
   const [ano, numero] = mes.split("-");
   return `${MESES_CURTOS[numero] || numero}/${ano.slice(2)}`;
+}
+
+function nomeDoMes(mes: string) {
+  const [ano, numero] = mes.split("-");
+  return `${MESES_LONGOS[numero] || numero} de ${ano}`;
 }
 
 function dataCurta(iso: string) {
@@ -38,6 +54,11 @@ function dataCurta(iso: string) {
 
 function porcento(valor: number | null) {
   return valor === null ? "—" : `${Math.round(valor)}%`;
+}
+
+function trimestreDe(mes: string) {
+  const [ano, numero] = mes.split("-").map(Number);
+  return `${ano}-T${Math.floor((numero - 1) / 3) + 1}`;
 }
 
 type Visao = "coorte" | "mes" | "comissao";
@@ -59,37 +80,36 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
 
   const porMes = useMemo(() => coortePorMes(base), [base]);
   const movimento = useMemo(() => movimentoMensal(base), [base]);
-  const trimestres = useMemo(() => trimestresDisponiveis(base.meses), [base.meses]);
-  const mesesDeContrato = useMemo(() => mesesComContrato(base.comissao), [base.comissao]);
+  const totalDaBase = useMemo(() => totalCoorte(base, base.meses), [base]);
 
-  // O trimestre que abre é o do mês anterior ao corrente: o último com os três meses
-  // já vividos. É a leitura que o Fernando pediu (jul a set, conferido à mão).
+  // Os trimestres saem dos meses com coorte e dos meses com contrato: um contrato de
+  // venda nova pode cair num mês em que nenhum voucher começou.
+  const trimestres = useMemo(
+    () =>
+      trimestresDisponiveis(
+        Array.from(new Set(base.meses.concat(base.comissao.map((l) => l.mes)))).sort()
+      ),
+    [base]
+  );
+
+  // O trimestre que abre é o do mês anterior ao corrente: o último com os três meses já
+  // vividos. É a leitura que o Fernando conferiu à mão (julho a setembro).
   const trimestrePadrao = useMemo(() => {
     const anterior = new Date(Date.parse(`${hoje}T00:00:00Z`));
     anterior.setUTCDate(1);
     anterior.setUTCMonth(anterior.getUTCMonth() - 1);
-    const mes = anterior.toISOString().slice(0, 7);
-    const achado = trimestres.find((t) => t.meses.includes(mes));
-    return (achado || trimestres[trimestres.length - 1])?.id || "";
-  }, [hoje, trimestres]);
+    return trimestreDe(anterior.toISOString().slice(0, 7));
+  }, [hoje]);
 
   const [trimestreEscolhido, setTrimestreEscolhido] = useState<string | null>(null);
   const trimestre =
     trimestres.find((t) => t.id === (trimestreEscolhido || trimestrePadrao)) ||
     trimestres[trimestres.length - 1];
-  const totalDoTrimestre = useMemo(
-    () => (trimestre ? totalCoorte(base, trimestre.meses) : null),
-    [base, trimestre]
-  );
 
-  const [mesEscolhido, setMesEscolhido] = useState<string | null>(null);
-  const mesDaComissao = mesEscolhido || mesesDeContrato[0] || "";
-  const linhasDoMes = base.comissao.filter((l) => l.mes === mesDaComissao);
-  const foraDoRecorteNoMes = base.contratosForaDoRecorte.filter(
-    (c) => c.data.slice(0, 7) === mesDaComissao
-  );
+  const linhasDoTrimestre = base.comissao.filter((l) => trimestre?.meses.includes(l.mes));
 
   const abaAtual = ABAS.find((a) => a.id === visao) || ABAS[0];
+  const maiorCoorte = Math.max(...porMes.map((l) => l.pessoas), 1);
 
   if (!base.oportunidades.length) return null;
 
@@ -152,46 +172,31 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
           : "Fecha o mês e congela — nunca é recalculada, não importa quando o voucher começou. O crédito vai para o treinador web do voucher mais recente da pessoa antes da assinatura."}
       </p>
 
-      {visao === "coorte" && totalDoTrimestre ? (
+      {visao === "coorte" ? (
         <>
-          <div className="controles">
-            <div className="grupo" role="group" aria-label="Trimestre">
-              {trimestres.map((t) => (
-                <button
-                  key={t.id}
-                  className="chip"
-                  aria-pressed={trimestre?.id === t.id}
-                  onClick={() => setTrimestreEscolhido(t.id)}
-                >
-                  {t.rotulo}
-                </button>
-              ))}
-            </div>
-          </div>
-
           <div className="metricas">
             <div>
-              <span className="n">{totalDoTrimestre.pessoas}</span>
+              <span className="n">{totalDaBase.pessoas}</span>
               <span className="rot">
-                pessoas na coorte — {totalDoTrimestre.lancamentos} lançamentos
+                pessoas de {rotuloDoMes(base.meses[0])} a {rotuloDoMes(base.meses[base.meses.length - 1])}
               </span>
             </div>
             <div className="conv">
-              <span className="n">{porcento(totalDoTrimestre.conversao)}</span>
+              <span className="n">{porcento(totalDaBase.conversao)}</span>
               <span className="rot">
-                de conversão — {totalDoTrimestre.fecharam} fecharam plano
+                de conversão — {totalDaBase.fecharam} fecharam plano
               </span>
             </div>
             <div>
-              <span className="n">{totalDoTrimestre.treinosMedia?.toFixed(1) ?? "—"}</span>
+              <span className="n">{totalDaBase.treinosMedia?.toFixed(1) ?? "—"}</span>
               <span className="rot">dias de treino por pessoa, somando a vigência</span>
             </div>
-            <div className={totalDoTrimestre.naJanela ? "alerta" : ""}>
-              <span className="n">{totalDoTrimestre.naJanela}</span>
+            <div className={totalDaBase.naJanela ? "alerta" : ""}>
+              <span className="n">{totalDaBase.naJanela}</span>
               <span className="rot">
-                {totalDoTrimestre.naJanela
-                  ? `ainda dentro dos ${JANELA_CREDITO_DIAS} dias — este número pode subir`
-                  : `nenhuma na janela: o período está fechado`}
+                {totalDaBase.naJanela
+                  ? `ainda dentro dos ${JANELA_CREDITO_DIAS} dias — esses meses podem subir`
+                  : "nenhuma na janela: tudo fechado"}
               </span>
             </div>
           </div>
@@ -209,29 +214,57 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
                 </tr>
               </thead>
               <tbody>
-                {porMes.map((linha) => {
-                  const maior = Math.max(...porMes.map((l) => l.pessoas), 1);
+                {porMes.map((linha, indice) => {
+                  // Subtotal fecha o trimestre assim que o último mês dele passa: é por
+                  // onde se confere o relatório contra o que já foi apurado à mão.
+                  const proximo = porMes[indice + 1];
+                  const fechaTrimestre =
+                    !proximo || trimestreDe(proximo.mes) !== trimestreDe(linha.mes);
+                  const doTrimestre = trimestres.find((t) => t.id === trimestreDe(linha.mes));
+                  const mesesDoTrimestre =
+                    doTrimestre?.meses.filter((m) => base.meses.includes(m)) || [];
+                  // Trimestre com um mês só repetiria a linha de cima; não vale a tinta.
+                  const subtotal =
+                    fechaTrimestre && mesesDoTrimestre.length > 1
+                      ? totalCoorte(base, mesesDoTrimestre)
+                      : null;
+
                   return (
-                    <tr
-                      key={linha.mes}
-                      className={trimestre?.meses.includes(linha.mes) ? "no-periodo" : ""}
-                    >
-                      <td className="mat">{rotuloDoMes(linha.mes)}</td>
-                      <td>
-                        <span className="freq">
-                          <span className="num">{linha.pessoas}</span>
-                          <span className="mini">
-                            <i style={{ width: `${(linha.pessoas / maior) * 100}%` }} />
+                    <Fragment key={linha.mes}>
+                      <tr>
+                        <td className="mat">{rotuloDoMes(linha.mes)}</td>
+                        <td>
+                          <span className="freq">
+                            <span className="num">{linha.pessoas}</span>
+                            <span className="mini">
+                              <i style={{ width: `${(linha.pessoas / maiorCoorte) * 100}%` }} />
+                            </span>
                           </span>
-                        </span>
-                      </td>
-                      <td>{linha.fecharam}</td>
-                      <td className="conversao">{porcento(linha.conversao)}</td>
-                      <td className={linha.naJanela ? "aberta" : ""}>
-                        {linha.naJanela ? `${linha.naJanela} podem fechar` : "fechada"}
-                      </td>
-                      <td>{linha.treinosMedia?.toFixed(1) ?? "—"}</td>
-                    </tr>
+                        </td>
+                        <td>{linha.fecharam}</td>
+                        <td className="conversao">{porcento(linha.conversao)}</td>
+                        <td className={linha.naJanela ? "aberta" : ""}>
+                          {linha.naJanela ? `${linha.naJanela} podem fechar` : "fechada"}
+                        </td>
+                        <td>{linha.treinosMedia?.toFixed(1) ?? "—"}</td>
+                      </tr>
+                      {subtotal ? (
+                        <tr className="subtotal">
+                          <td className="mat">{doTrimestre?.rotulo}</td>
+                          <td>
+                            <span className="freq">
+                              <span className="num">{subtotal.pessoas}</span>
+                            </span>
+                          </td>
+                          <td>{subtotal.fecharam}</td>
+                          <td className="conversao">{porcento(subtotal.conversao)}</td>
+                          <td className={subtotal.naJanela ? "aberta" : ""}>
+                            {subtotal.naJanela ? `${subtotal.naJanela} podem fechar` : "fechado"}
+                          </td>
+                          <td>{subtotal.treinosMedia?.toFixed(1) ?? "—"}</td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
                   );
                 })}
               </tbody>
@@ -273,18 +306,18 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
         </div>
       ) : null}
 
-      {visao === "comissao" ? (
+      {visao === "comissao" && trimestre ? (
         <>
           <div className="controles">
-            <div className="grupo" role="group" aria-label="Mês do contrato">
-              {mesesDeContrato.map((mes) => (
+            <div className="grupo" role="group" aria-label="Trimestre do contrato">
+              {trimestres.map((t) => (
                 <button
-                  key={mes}
+                  key={t.id}
                   className="chip"
-                  aria-pressed={mesDaComissao === mes}
-                  onClick={() => setMesEscolhido(mes)}
+                  aria-pressed={trimestre.id === t.id}
+                  onClick={() => setTrimestreEscolhido(t.id)}
                 >
-                  {rotuloDoMes(mes)}
+                  {t.rotulo}
                 </button>
               ))}
             </div>
@@ -292,93 +325,39 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
 
           <div className="metricas">
             <div>
-              <span className="n">{linhasDoMes.length}</span>
-              <span className="rot">contratos assinados em {rotuloDoMes(mesDaComissao)}</span>
+              <span className="n">{linhasDoTrimestre.length}</span>
+              <span className="rot">
+                contratos no trimestre — somados só para conferência; o que se paga é o mês
+              </span>
             </div>
             <div className="conv">
-              <span className="n">{linhasDoMes.filter((l) => l.dentroDaJanela).length}</span>
+              <span className="n">{linhasDoTrimestre.filter((l) => l.dentroDaJanela).length}</span>
               <span className="rot">
                 conversão de voucher — dentro dos {JANELA_CREDITO_DIAS} dias
               </span>
             </div>
             <div>
-              <span className="n">{linhasDoMes.filter((l) => !l.dentroDaJanela).length}</span>
+              <span className="n">{linhasDoTrimestre.filter((l) => !l.dentroDaJanela).length}</span>
               <span className="rot">
-                venda nova — voucher antigo, fora da janela, mas o contrato é deste mês
+                venda nova — voucher antigo, fora da janela, mas o contrato é do trimestre
               </span>
             </div>
             <div>
-              <span className="n">{comissaoPorTreinador(linhasDoMes).length}</span>
-              <span className="rot">treinadores com contrato no mês</span>
+              <span className="n">{comissaoPorTreinador(linhasDoTrimestre).length}</span>
+              <span className="rot">treinadores com contrato no trimestre</span>
             </div>
           </div>
 
-          <div className="rolagem">
-            <table>
-              <thead>
-                <tr>
-                  <th>Cliente</th>
-                  <th>Treinador creditado</th>
-                  <th>Contrato</th>
-                  <th>Voucher de origem</th>
-                  <th>Treinos na vigência</th>
-                  <th>Plano</th>
-                </tr>
-              </thead>
-              <tbody>
-                {linhasDoMes.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="vazio">
-                      Nenhum contrato assinado neste mês.
-                    </td>
-                  </tr>
-                ) : (
-                  linhasDoMes.map((linha) => (
-                    <tr key={linha.matricula}>
-                      <td>
-                        <span className="cliente-nome">{linha.nome}</span>
-                        <span className="detalhe-cel">mat. {linha.matricula}</span>
-                      </td>
-                      <td className={linha.treinadorCreditado ? "treinador" : "sem"}>
-                        {linha.treinadorCreditado || "sem vínculo"}
-                        {linha.professorNoVoucher ? (
-                          <span className="detalhe-cel">
-                            professor: {linha.professorNoVoucher}
-                          </span>
-                        ) : null}
-                      </td>
-                      <td className="vig">{dataCurta(linha.dataContrato)}</td>
-                      <td className="vig">
-                        {rotuloPlano(linha.origem.tipo)}
-                        <span className="detalhe-cel">
-                          {dataCurta(linha.origem.inicioPrimeiro)} – {dataCurta(linha.origem.fim)}
-                          {linha.dentroDaJanela ? "" : " · venda nova"}
-                        </span>
-                      </td>
-                      <td>{linha.treinos}</td>
-                      <td className="vig">{linha.planoFechado || "—"}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {linhasDoMes.length ? (
-            <p className="eyebrow">
-              {comissaoPorTreinador(linhasDoMes)
-                .map((t) => `${t.treinador} ${t.contratos}`)
-                .join(" · ")}
-            </p>
-          ) : null}
-
-          {foraDoRecorteNoMes.length ? (
-            <p className="nota-fora">
-              Mais {foraDoRecorteNoMes.length} contrato
-              {foraDoRecorteNoMes.length > 1 ? "s" : ""} no mês de quem não teve voucher neste
-              recorte de tipo — não há voucher a creditar, então ficam fora da lista.
-            </p>
-          ) : null}
+          {trimestre.meses.map((mes) => (
+            <MesDeComissao
+              key={mes}
+              mes={mes}
+              linhas={base.comissao.filter((l) => l.mes === mes)}
+              foraDoRecorte={
+                base.contratosForaDoRecorte.filter((c) => c.data.slice(0, 7) === mes).length
+              }
+            />
+          ))}
         </>
       ) : null}
 
@@ -408,5 +387,87 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
         </p>
       </div>
     </section>
+  );
+}
+
+/** Um mês da comissão: a unidade que fecha e congela, por isso cada um tem o seu bloco. */
+function MesDeComissao({
+  mes,
+  linhas,
+  foraDoRecorte,
+}: {
+  mes: string;
+  linhas: LinhaComissao[];
+  foraDoRecorte: number;
+}) {
+  const porTreinador = comissaoPorTreinador(linhas);
+
+  return (
+    <div className="mes-comissao">
+      <h3>
+        {nomeDoMes(mes)}
+        <span className="cont">
+          {linhas.length} contrato{linhas.length === 1 ? "" : "s"}
+        </span>
+      </h3>
+
+      {linhas.length === 0 ? (
+        <p className="nota-fora">Nenhum contrato assinado neste mês.</p>
+      ) : (
+        <>
+          <div className="rolagem">
+            <table>
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Treinador creditado</th>
+                  <th>Contrato</th>
+                  <th>Voucher de origem</th>
+                  <th>Treinos na vigência</th>
+                  <th>Plano</th>
+                </tr>
+              </thead>
+              <tbody>
+                {linhas.map((linha) => (
+                  <tr key={linha.matricula}>
+                    <td>
+                      <span className="cliente-nome">{linha.nome}</span>
+                      <span className="detalhe-cel">mat. {linha.matricula}</span>
+                    </td>
+                    <td className={linha.treinadorCreditado ? "treinador" : "sem"}>
+                      {linha.treinadorCreditado || "sem vínculo"}
+                      {linha.professorNoVoucher ? (
+                        <span className="detalhe-cel">professor: {linha.professorNoVoucher}</span>
+                      ) : null}
+                    </td>
+                    <td className="vig">{dataCurta(linha.dataContrato)}</td>
+                    <td className="vig">
+                      {rotuloPlano(linha.origem.tipo)}
+                      <span className="detalhe-cel">
+                        {dataCurta(linha.origem.inicioPrimeiro)} – {dataCurta(linha.origem.fim)}
+                        {linha.dentroDaJanela ? "" : " · venda nova"}
+                      </span>
+                    </td>
+                    <td>{linha.treinos}</td>
+                    <td className="vig">{linha.planoFechado || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <p className="eyebrow">
+            {porTreinador.map((t) => `${t.treinador} ${t.contratos}`).join(" · ")}
+          </p>
+        </>
+      )}
+
+      {foraDoRecorte ? (
+        <p className="nota-fora">
+          Mais {foraDoRecorte} contrato{foraDoRecorte > 1 ? "s" : ""} no mês de quem não teve
+          voucher neste recorte de tipo — não há voucher a creditar, então ficam fora da lista.
+        </p>
+      ) : null}
+    </div>
   );
 }

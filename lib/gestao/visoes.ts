@@ -503,8 +503,3 @@ export function comissaoPorTreinador(linhas: LinhaComissao[]): ComissaoDoTreinad
     .map(([treinador, contratos]) => ({ treinador, contratos }))
     .sort((a, b) => b.contratos - a.contratos || a.treinador.localeCompare(b.treinador));
 }
-
-/** Meses com contrato assinado, do mais recente para o mais antigo. */
-export function mesesComContrato(linhas: LinhaComissao[]): string[] {
-  return Array.from(new Set(linhas.map((l) => l.mes))).sort().reverse();
-}
