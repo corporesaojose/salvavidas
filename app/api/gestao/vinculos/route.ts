@@ -12,6 +12,10 @@ export const dynamic = "force-dynamic";
  * da experiência; sem orientador (o campo que a casa chama de consultor) o cliente fica
  * sem responsável comercial — e nos dois casos ele some do acompanhamento.
  *
+ * Professor (vínculo PR na Pacto, às vezes a fisioterapeuta) conta como dono da
+ * experiência: quem tem PR está acompanhado por alguém, então não entra nesta lista
+ * só por não ter TW — cobrar isso mandava a recepção atrás de um vínculo que existia.
+ *
  * A recepção corrige, então a lista vai para o canal dela.
  */
 function tokenConfere(request: NextRequest) {
@@ -39,12 +43,13 @@ export async function GET(request: NextRequest) {
 
   const [linhas] = await pool.query<RowDataPacket[]>(
     `SELECT v.chave, v.matricula, v.nome, v.plano, v.inicio_vigencia, v.fim_vigencia,
-            v.treinador_web, v.coordenador
+            v.treinador_web, v.professor, v.coordenador
      FROM freepass_vouchers v
      LEFT JOIN freepass_exclusoes e ON e.chave = v.chave
      WHERE e.chave IS NULL
        AND v.inicio_vigencia <= ? AND v.fim_vigencia >= ?
-       AND (v.treinador_web IS NULL OR v.treinador_web = ''
+       AND ((   (v.treinador_web IS NULL OR v.treinador_web = '')
+            AND (v.professor IS NULL OR v.professor = ''))
             OR v.coordenador IS NULL OR v.coordenador = '')
      ORDER BY v.inicio_vigencia ASC`,
     [hoje, hoje]
@@ -58,7 +63,7 @@ export async function GET(request: NextRequest) {
 
   const todos = linhas.map((l) => {
     const faltando: string[] = [];
-    if (!l.treinador_web) faltando.push("treinador web");
+    if (!l.treinador_web && !l.professor) faltando.push("treinador web");
     if (!l.coordenador) faltando.push("orientador");
     return {
       chave: l.chave as string,

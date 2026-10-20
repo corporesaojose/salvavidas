@@ -230,7 +230,12 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
     if (filtro === "zero" && v.frequencia !== 0) return false;
     if (filtro === "anotado" && !v.chaves.some((c) => (anotacoesPorChave[c] || []).length))
       return false;
-    if (termo && !`${v.nome} ${v.matricula} ${v.treinadorWeb || ""}`.toLowerCase().includes(termo))
+    if (
+      termo &&
+      !`${v.nome} ${v.matricula} ${v.treinadorWeb || ""} ${v.professor || ""}`
+        .toLowerCase()
+        .includes(termo)
+    )
       return false;
     return true;
   });
@@ -578,8 +583,11 @@ export default function Relatorio({ dados, usuario }: { dados: DadosGestao; usua
                             </span>
                           </span>
                         </td>
-                        <td className={v.treinadorWeb ? "treinador" : "sem"}>
-                          {v.treinadorWeb || "sem vínculo"}
+                        <td className={v.treinadorWeb || v.professor ? "treinador" : "sem"}>
+                          {v.treinadorWeb || v.professor || "sem vínculo"}
+                          {!v.treinadorWeb && v.professor ? (
+                            <span className="detalhe-cel">professor</span>
+                          ) : null}
                         </td>
                         <td className="vig">
                           {dataBr(v.inicioVigencia)} – {dataBr(v.fimVigencia)}
@@ -762,6 +770,7 @@ function Ficha({
             <h3>Equipe vinculada</h3>
             <dl className="ficha">
               {campo("Treinador web", voucher.treinadorWeb)}
+              {voucher.professor ? campo("Professor", voucher.professor) : null}
               {campo("Coordenador", voucher.coordenador)}
               {campo("Consultora", voucher.consultora)}
             </dl>

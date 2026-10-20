@@ -14,6 +14,7 @@ const TABELAS = [
     nome VARCHAR(160) NOT NULL,
     foto_url TEXT NULL,
     treinador_web VARCHAR(120) NULL,
+    professor VARCHAR(120) NULL,
     coordenador VARCHAR(120) NULL,
     consultora VARCHAR(120) NULL,
     inicio_vigencia DATE NOT NULL,
@@ -79,6 +80,10 @@ const COLUNAS_NOVAS = [
   // o código da pessoa não é preciso repetir a busca de cadastro na Pacto todo dia.
   "ALTER TABLE freepass_vouchers ADD COLUMN data_lancamento DATE NULL",
   "ALTER TABLE freepass_vouchers ADD COLUMN codigo_pessoa INT NULL",
+  // Vínculo PR na Pacto. Quem tem professor (às vezes a fisioterapeuta) está
+  // acompanhado por alguém, mesmo sem TW — sem esta coluna o relatório contava essas
+  // pessoas como vouchers órfãos e a recepção ia atrás de um vínculo que existia.
+  "ALTER TABLE freepass_vouchers ADD COLUMN professor VARCHAR(120) NULL",
 ];
 
 export async function garantirSchema() {

@@ -19,12 +19,20 @@ export const dynamic = "force-dynamic";
  * - `carencia` — venceu há pouco e a pessoa não fechou plano. A frequência está
  *   congelada, mas o contrato ainda pode ser assinado depois do voucher. Só o sync
  *   semanal olha esta lista.
+ * - `revisarVinculo` — voucher já encerrado que continua sem ninguém acompanhando
+ *   (nem treinador web nem professor). Vínculo pode ser cadastrado depois da vigência
+ *   vencer, e sem reconferir isso o relatório acusa um voucher órfão para sempre.
+ *   Custa uma chamada por voucher e só o sync de domingo olha esta lista.
  * - `congelados` — nada a fazer. Vai só como lista de chaves, para a varredura
  *   reconhecer o que já é conhecido e não enriquecer de novo.
  */
 
 // Dias após o fim da vigência em que um contrato ainda é creditado ao voucher.
 const CARENCIA_DIAS = 45;
+
+// Teto da revisão de vínculo numa rodada. O que não couber volta no domingo seguinte —
+// o que importa é não deixar a rodada semanal crescer sem limite junto com a base.
+const REVISAO_VINCULO_MAX = 80;
 
 function hojeSaoPaulo(): string {
   const agora = new Date(Date.now() - 3 * 3600000);
@@ -62,12 +70,14 @@ export async function GET(request: NextRequest) {
 
   const [linhas] = await pool.query<RowDataPacket[]>(
     `SELECT chave, matricula, nome, data_lancamento, inicio_vigencia, fim_vigencia,
-            plano, codigo_pessoa, treinador_web, coordenador, fechou_plano, frequencia
+            plano, codigo_pessoa, treinador_web, professor, coordenador, fechou_plano,
+            frequencia
      FROM freepass_vouchers`
   );
 
   const ativos = [];
   const carencia = [];
+  const revisarVinculo = [];
   const congelados: string[] = [];
 
   for (const linha of linhas) {
@@ -86,7 +96,7 @@ export async function GET(request: NextRequest) {
       codigoPessoa: linha.codigo_pessoa ? Number(linha.codigo_pessoa) : null,
       // Consultora fica de fora de propósito: nem todo voucher tem uma, e cobrar isso
       // faria a busca de vínculo se repetir todo dia sem nunca completar.
-      faltaVinculo: !linha.treinador_web || !linha.coordenador,
+      faltaVinculo: (!linha.treinador_web && !linha.professor) || !linha.coordenador,
       fechouPlano: Number(linha.fechou_plano) === 1,
     };
 
@@ -104,8 +114,20 @@ export async function GET(request: NextRequest) {
       continue;
     }
 
+    // Encerrado, mas sem ninguém acompanhando: o vínculo pode ter sido cadastrado
+    // depois, então vale uma reconferida. Precisa do código da pessoa — sem ele a
+    // chamada de vínculo não existe, e quem não tem cai no enriquecimento completo.
+    const semAcompanhamento = !linha.treinador_web && !linha.professor;
+    if (semAcompanhamento && detalhe.codigoPessoa) {
+      revisarVinculo.push(detalhe);
+    }
+
     congelados.push(marca(linha));
   }
+
+  // Vigência mais recente primeiro: é de quem a recepção ainda tem lembrança e de quem
+  // o vínculo tem mais chance de ter acabado de aparecer.
+  revisarVinculo.sort((a, b) => b.fimVigencia.localeCompare(a.fimVigencia));
 
   return NextResponse.json({
     ok: true,
@@ -114,6 +136,8 @@ export async function GET(request: NextRequest) {
     total: linhas.length,
     ativos,
     carencia,
+    revisarVinculo: revisarVinculo.slice(0, REVISAO_VINCULO_MAX),
+    revisarVinculoEmAberto: revisarVinculo.length,
     congelados,
   });
 }

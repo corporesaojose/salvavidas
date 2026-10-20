@@ -120,7 +120,11 @@ export async function montarResumo(): Promise<ResumoGestao> {
                  AND DATEDIFF(?, v.inicio_vigencia) >= DATEDIFF(v.fim_vigencia, v.inicio_vigencia) / 2
                 THEN 1 ELSE 0 END) AS em_risco,
        SUM(CASE WHEN v.frequencia >= 3 THEN 1 ELSE 0 END) AS engajados,
-       SUM(CASE WHEN v.treinador_web IS NULL OR v.treinador_web = '' THEN 1 ELSE 0 END) AS sem_treinador
+       -- Professor (vínculo PR) conta como acompanhamento: só é "sem treinador" quem
+       -- não tem nem TW nem PR no cadastro.
+       SUM(CASE WHEN (v.treinador_web IS NULL OR v.treinador_web = '')
+                 AND (v.professor IS NULL OR v.professor = '')
+                THEN 1 ELSE 0 END) AS sem_treinador
      FROM freepass_vouchers v
      LEFT JOIN freepass_exclusoes e ON e.chave = v.chave
      WHERE e.chave IS NULL AND v.fechou_plano = 0

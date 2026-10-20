@@ -31,8 +31,13 @@ e a divergência em si é um problema de cadastro a ser corrigido.
   e nenhum período PL na Pacto. A pessoa treina, some do relatório e ninguém cobra o
   follow-up. Aconteceu com Andréa Morikawa, Rosana Fonseca, Simone Camillo e Miguel
   Cassio Castro entre julho e agosto de 2026.
-- **Voucher sem treinador web vinculado** — sem TW no cadastro, ninguém é dono da
+- **Voucher sem ninguém acompanhando** — sem TW *nem PR* no cadastro, ninguém é dono da
   experiência daquela pessoa. Em maio-agosto de 2026 eram 25 dos 133 vouchers de 15 dias.
+  Atenção ao ler isso: a Pacto tem dois vínculos de acompanhamento técnico, TW
+  (treinador web) e PR (professor, que às vezes é a fisioterapeuta). Quem tem só PR
+  **está acompanhado** e não é um voucher órfão — até outubro de 2026 o sync só lia TW
+  e essas pessoas apareciam na lista por engano, mandando a recepção atrás de um vínculo
+  que já existia (caso Camile Oliveira, com PR da Victoria Schirmer).
 - **Cadastro duplicado** — a mesma pessoa em dois cadastros, o voucher indo para um e o
   acompanhamento para outro (caso Isabella Craveiri / Craveiro).
 - **Cadastro só com primeiro nome** — impossível conferir depois; três cadastros

@@ -44,6 +44,7 @@ export interface ItemAlerta {
   acao: string;
   consultora: string | null;
   treinadorWeb: string | null;
+  professor: string | null;
 }
 
 export interface CardDiario {
@@ -123,6 +124,7 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
       diasSemVir,
       consultora: (linha.consultora as string) || (linha.lancado_por as string) || null,
       treinadorWeb: (linha.treinador_web as string) || null,
+      professor: (linha.professor as string) || null,
     };
 
     if (
@@ -157,7 +159,9 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
     }
   }
 
-  // Cada item vai para a consultora e para o treinador vinculado.
+  // Cada item vai para a consultora e para quem acompanha tecnicamente — treinador web
+  // quando existe, senão o professor (vínculo PR, às vezes a fisioterapeuta). É quem
+  // tem como marcar o treino que falta.
   const porPessoa = new Map<string, CardDiario>();
 
   function incluir(nome: string | null, papel: string, item: ItemAlerta) {
@@ -176,7 +180,11 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
 
   for (const item of itens) {
     incluir(item.consultora, "consultora", item);
-    incluir(item.treinadorWeb, "treinador", item);
+    incluir(
+      item.treinadorWeb || item.professor,
+      item.treinadorWeb ? "treinador" : "professor",
+      item
+    );
   }
 
   // Dentro do card, o mais urgente primeiro: quem já engajou e sumiu, depois quem tem

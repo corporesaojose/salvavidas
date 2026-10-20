@@ -14,6 +14,7 @@ interface VoucherEntrada {
   nome?: string;
   fotoUrl?: string | null;
   treinadorWeb?: string | null;
+  professor?: string | null;
   coordenador?: string | null;
   consultora?: string | null;
   dataLancamento?: string | null;
@@ -113,15 +114,16 @@ export async function POST(request: NextRequest) {
 
     await pool.query(
       `INSERT INTO freepass_vouchers
-        (chave, matricula, nome, foto_url, treinador_web, coordenador, consultora,
+        (chave, matricula, nome, foto_url, treinador_web, professor, coordenador, consultora,
          data_lancamento, codigo_pessoa, inicio_vigencia, fim_vigencia, plano, frequencia,
          fechou_plano, plano_fechado, data_contrato, lancado_por, situacao_atual,
          primeiro_acesso, ultimo_acesso)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          nome = COALESCE(NULLIF(VALUES(nome), ''), nome),
          foto_url = COALESCE(VALUES(foto_url), foto_url),
          treinador_web = COALESCE(VALUES(treinador_web), treinador_web),
+         professor = COALESCE(VALUES(professor), professor),
          coordenador = COALESCE(VALUES(coordenador), coordenador),
          consultora = COALESCE(VALUES(consultora), consultora),
          data_lancamento = COALESCE(VALUES(data_lancamento), data_lancamento),
@@ -142,6 +144,7 @@ export async function POST(request: NextRequest) {
         String(v.nome || "").slice(0, 160),
         v.fotoUrl || null,
         v.treinadorWeb || null,
+        v.professor || null,
         v.coordenador || null,
         v.consultora || null,
         data(v.dataLancamento),

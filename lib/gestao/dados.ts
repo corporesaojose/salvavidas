@@ -8,6 +8,8 @@ export interface Voucher {
   nome: string;
   fotoUrl: string | null;
   treinadorWeb: string | null;
+  /** Vínculo PR na Pacto. Quem tem professor está acompanhado, mesmo sem treinador web. */
+  professor: string | null;
   coordenador: string | null;
   consultora: string | null;
   inicioVigencia: string;
@@ -91,6 +93,7 @@ export async function carregarDados(): Promise<DadosGestao> {
       nome: v.nome,
       fotoUrl: v.foto_url,
       treinadorWeb: v.treinador_web,
+      professor: v.professor,
       coordenador: v.coordenador,
       consultora: v.consultora,
       inicioVigencia: dia(v.inicio_vigencia),
