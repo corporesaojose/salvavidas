@@ -91,6 +91,12 @@ const COLUNAS_NOVAS = [
   // semanas depois (Leila Candelária Osman: venda 16/09, acesso 02/10). A comissão
   // paga pela venda, então é esta data que ela usa.
   "ALTER TABLE freepass_vouchers ADD COLUMN data_venda DATE NULL",
+  // Duração do plano fechado, em meses. O `descricaoPlano` da Pacto não distingue
+  // modalidade — "PLANO CTG FISIO" é o nome tanto do mensal quanto do anual —, e plano
+  // mensal não entra na comissão. A duração sai das fases do contrato no período de
+  // acesso (CA, AT, RA, BO do mesmo número de contrato), que o sync já busca: do menor
+  // início ao maior fim. Mensal dá 1; os anuais observados dão de 12 a 17.
+  "ALTER TABLE freepass_vouchers ADD COLUMN plano_meses INT NULL",
 ];
 
 export async function garantirSchema() {

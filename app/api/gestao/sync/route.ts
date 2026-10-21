@@ -30,6 +30,8 @@ interface VoucherEntrada {
    *  lançada e paga. Não é o `dataLancamento` acima, que é o do voucher, nem
    *  `dataContrato`, que é o início do acesso do plano. */
   dataVenda?: string | null;
+  /** Duração do plano fechado, em meses: mensal não entra na comissão. */
+  planoMeses?: number | string | null;
   lancadoPor?: string | null;
   situacaoAtual?: string | null;
   primeiroAcesso?: string | null;
@@ -120,10 +122,10 @@ export async function POST(request: NextRequest) {
       `INSERT INTO freepass_vouchers
         (chave, matricula, nome, foto_url, treinador_web, professor, coordenador, consultora,
          data_lancamento, codigo_pessoa, inicio_vigencia, fim_vigencia, plano, frequencia,
-         fechou_plano, plano_fechado, data_contrato, data_venda, lancado_por,
+         fechou_plano, plano_fechado, plano_meses, data_contrato, data_venda, lancado_por,
          situacao_atual,
          primeiro_acesso, ultimo_acesso)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          nome = COALESCE(NULLIF(VALUES(nome), ''), nome),
          foto_url = COALESCE(VALUES(foto_url), foto_url),
@@ -138,6 +140,7 @@ export async function POST(request: NextRequest) {
          frequencia = GREATEST(VALUES(frequencia), frequencia),
          fechou_plano = GREATEST(VALUES(fechou_plano), fechou_plano),
          plano_fechado = COALESCE(VALUES(plano_fechado), plano_fechado),
+         plano_meses = COALESCE(VALUES(plano_meses), plano_meses),
          data_contrato = COALESCE(VALUES(data_contrato), data_contrato),
          data_venda = COALESCE(VALUES(data_venda), data_venda),
          lancado_por = COALESCE(VALUES(lancado_por), lancado_por),
@@ -161,6 +164,7 @@ export async function POST(request: NextRequest) {
         Number(v.frequencia) || 0,
         fechou,
         v.planoFechado || null,
+        Number(v.planoMeses) || null,
         data(v.dataContrato),
         data(v.dataVenda),
         v.lancadoPor || null,

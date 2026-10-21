@@ -21,6 +21,8 @@ export interface Voucher {
   dataContrato: string | null;
   /** Dia da venda na Pacto. É a data que a comissão usa; null enquanto o sync não a trouxer. */
   dataVenda: string | null;
+  /** Duração do plano fechado, em meses. Mensal não entra na comissão. */
+  planoMeses: number | null;
   lancadoPor: string | null;
   situacaoAtual: string | null;
 }
@@ -106,6 +108,7 @@ export async function carregarDados(): Promise<DadosGestao> {
       planoFechado: v.plano_fechado,
       dataContrato: v.data_contrato ? dia(v.data_contrato) : null,
       dataVenda: v.data_venda ? dia(v.data_venda) : null,
+      planoMeses: v.plano_meses === null || v.plano_meses === undefined ? null : Number(v.plano_meses),
       lancadoPor: v.lancado_por,
       situacaoAtual: v.situacao_atual,
     })),

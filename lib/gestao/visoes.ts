@@ -95,7 +95,25 @@ export interface ContratoDaPessoa {
    */
   semDataDeVenda: boolean;
   plano: string | null;
+  /** Duração do plano em meses; null enquanto o sync não a trouxer. */
+  planoMeses: number | null;
+  /** Plano curto demais para comissão. Ver `MESES_MINIMO_COMISSAO`. */
+  planoCurto: boolean;
+  /** Ainda sem duração conhecida: não dá para dizer se comissiona. */
+  semDuracao: boolean;
 }
+
+/**
+ * A casa paga comissão de plano com **6 meses ou mais** de duração — regra do Fernando
+ * em 21/10/2026. Mensal, trimestral e quadrimestral existem e são raros, mas acontecem,
+ * e não entram: o Estevam Ferri fechou um de 1 mês e R$ 610.
+ *
+ * O nome do plano não serve para separar: "PLANO CTG FISIO" é a descrição tanto do
+ * mensal quanto dos anuais de 12 a 17 meses. A duração vem calculada das fases do
+ * contrato no período de acesso (CA, AT, RA, BO do mesmo contrato), do menor início ao
+ * maior fim — conta que o sync faz com o que já tem em mãos, sem chamada nova.
+ */
+export const MESES_MINIMO_COMISSAO = 6;
 
 /** Uma sequência de lançamentos encadeados: uma oportunidade de venda, uma experiência. */
 export interface Oportunidade {
@@ -193,21 +211,41 @@ export function prepararVisoes(
   // lançamento, e pode estar gravado numa linha que o recorte descarta.
   const contratos = new Map<string, ContratoDaPessoa>();
   for (const voucher of vouchers) {
-    const temVenda = Boolean(voucher.dataVenda);
-    if (!voucher.dataContrato && !temVenda) continue;
-    const jaTem = contratos.get(voucher.matricula);
-    // Uma linha com data de venda substitui uma que só tinha o início do acesso: o sync
-    // pode preencher a venda em qualquer linha da pessoa, não necessariamente na primeira.
-    if (jaTem && (!temVenda || !jaTem.semDataDeVenda)) continue;
-    contratos.set(voucher.matricula, {
-      matricula: voucher.matricula,
-      nome: voucher.nome,
-      data: voucher.dataVenda || (voucher.dataContrato as string),
-      dataVenda: voucher.dataVenda,
-      dataAcesso: voucher.dataContrato,
-      semDataDeVenda: !temVenda,
-      plano: voucher.planoFechado,
-    });
+    if (!voucher.dataContrato && !voucher.dataVenda) continue;
+    const atual = contratos.get(voucher.matricula);
+
+    if (!atual) {
+      contratos.set(voucher.matricula, {
+        matricula: voucher.matricula,
+        nome: voucher.nome,
+        data: voucher.dataVenda || (voucher.dataContrato as string),
+        dataVenda: voucher.dataVenda,
+        dataAcesso: voucher.dataContrato,
+        semDataDeVenda: !voucher.dataVenda,
+        plano: voucher.planoFechado,
+        planoMeses: voucher.planoMeses ?? null,
+        // `== null` de propósito: pega também undefined, que é o que vem quando a
+        // coluna ainda não existe no banco ou o payload não mandou o campo.
+        planoCurto: voucher.planoMeses != null && voucher.planoMeses < MESES_MINIMO_COMISSAO,
+        semDuracao: voucher.planoMeses == null,
+      });
+      continue;
+    }
+
+    // As outras linhas da pessoa completam o que falta: o sync pode gravar a venda ou a
+    // duração em qualquer uma delas, não necessariamente na primeira que aparece aqui.
+    if (atual.semDataDeVenda && voucher.dataVenda) {
+      atual.dataVenda = voucher.dataVenda;
+      atual.data = voucher.dataVenda;
+      atual.semDataDeVenda = false;
+    }
+    if (atual.semDuracao && voucher.planoMeses != null) {
+      atual.planoMeses = voucher.planoMeses;
+      atual.planoCurto = voucher.planoMeses < MESES_MINIMO_COMISSAO;
+      atual.semDuracao = false;
+    }
+    if (!atual.dataAcesso && voucher.dataContrato) atual.dataAcesso = voucher.dataContrato;
+    if (!atual.plano && voucher.planoFechado) atual.plano = voucher.planoFechado;
   }
 
   const passesDeAssinatura = vouchers.filter(ehPasseDeAssinatura);
@@ -362,6 +400,9 @@ function creditarContratos(
       dataContrato: contrato.data,
       semDataDeVenda: contrato.semDataDeVenda,
       planoFechado: contrato.plano,
+      planoMeses: contrato.planoMeses,
+      planoCurto: contrato.planoCurto,
+      semDuracao: contrato.semDuracao,
       treinadorCreditado: lancamento.treinadorWeb,
       professorNoVoucher: lancamento.treinadorWeb ? null : lancamento.professor,
       origem: dona,
@@ -523,6 +564,12 @@ export interface LinhaComissao {
   /** Ainda lida pelo início do acesso: o sync não trouxe a data de pagamento. */
   semDataDeVenda: boolean;
   planoFechado: string | null;
+  /** Duração do plano em meses, quando conhecida. */
+  planoMeses: number | null;
+  /** Plano curto demais: aparece na lista, marcado, mas fora da contagem. */
+  planoCurto: boolean;
+  /** Sem duração conhecida: ainda não dá para dizer se comissiona. */
+  semDuracao: boolean;
   /** Treinador web do voucher mais recente antes do contrato. */
   treinadorCreditado: string | null;
   /** Quem acompanhou sem ser treinador web — informação, não crédito. */
@@ -547,11 +594,12 @@ export interface ComissaoDoTreinador {
 
 /**
  * Quantos contratos cada treinador leva no mês. Cada contrato conta uma vez só, e só
- * entra o que é comissionado como voucher: venda nova não gera crédito de treinador.
+ * entra o que é comissionado como voucher: nem venda nova nem plano curto geram
+ * crédito de treinador.
  */
 export function comissaoPorTreinador(linhas: LinhaComissao[]): ComissaoDoTreinador[] {
   const contagem = new Map<string, number>();
-  for (const linha of linhas.filter((l) => l.dentroDaJanela)) {
+  for (const linha of linhas.filter((l) => l.dentroDaJanela && !l.planoCurto)) {
     const quem = linha.treinadorCreditado || "sem treinador vinculado";
     contagem.set(quem, (contagem.get(quem) || 0) + 1);
   }

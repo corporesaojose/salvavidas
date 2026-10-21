@@ -6,6 +6,7 @@ import { rotuloPlano } from "@/lib/gestao/planos";
 import type { LinhaComissao } from "@/lib/gestao/visoes";
 import {
   JANELA_CREDITO_DIAS,
+  MESES_MINIMO_COMISSAO,
   TIPOS_EXPERIENCIA,
   coortePorMes,
   comissaoPorTreinador,
@@ -331,10 +332,12 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
               </span>
             </div>
             <div className="conv">
-              <span className="n">{linhasDoTrimestre.filter((l) => l.dentroDaJanela).length}</span>
+              <span className="n">
+                {linhasDoTrimestre.filter((l) => l.dentroDaJanela && !l.planoCurto).length}
+              </span>
               <span className="rot">
-                comissão de voucher — assinados em até {JANELA_CREDITO_DIAS} dias do fim da
-                vigência
+                comissão de voucher — dentro dos {JANELA_CREDITO_DIAS} dias e com plano de{" "}
+                {MESES_MINIMO_COMISSAO} meses ou mais
               </span>
             </div>
             <div className={linhasDoTrimestre.some((l) => !l.dentroDaJanela) ? "alerta" : ""}>
@@ -342,6 +345,12 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
               <span className="rot">
                 venda nova — passou dos {JANELA_CREDITO_DIAS} dias, não é comissionada como
                 voucher
+              </span>
+            </div>
+            <div className={linhasDoTrimestre.some((l) => l.planoCurto) ? "alerta" : ""}>
+              <span className="n">{linhasDoTrimestre.filter((l) => l.planoCurto).length}</span>
+              <span className="rot">
+                plano curto — menos de {MESES_MINIMO_COMISSAO} meses, fora da comissão
               </span>
             </div>
             <div>
@@ -381,6 +390,13 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
           preenchimento retroativo.
         </p>
         <p>
+          <b>Comissão é de plano com {MESES_MINIMO_COMISSAO} meses ou mais.</b> Mensal,
+          trimestral e quadrimestral acontecem, são raros, e não entram — a venda fica na
+          lista, marcada com a duração e fora da contagem, para ninguém precisar perguntar
+          por que o número não fechou. O nome do plano não separa os dois: é a mesma
+          descrição para o mensal e para o anual, só a duração do contrato distingue.
+        </p>
+        <p>
           <b>Relançamento reinicia a coorte.</b> Quando a pessoa não consegue vir e a consultora
           lança de novo, vale o início do voucher mais recente. Lançamentos encadeados até{" "}
           {JANELA_CREDITO_DIAS} dias um do outro são a mesma oportunidade; com intervalo maior,
@@ -415,15 +431,19 @@ function MesDeComissao({
 }) {
   const porTreinador = comissaoPorTreinador(linhas);
   const semVenda = linhas.filter((l) => l.semDataDeVenda).length;
+  const semDuracao = linhas.filter((l) => l.semDuracao).length;
 
   return (
     <div className="mes-comissao">
       <h3>
         {nomeDoMes(mes)}
         <span className="cont">
-          {linhas.filter((l) => l.dentroDaJanela).length} de voucher
+          {linhas.filter((l) => l.dentroDaJanela && !l.planoCurto).length} de voucher
           {linhas.some((l) => !l.dentroDaJanela)
             ? ` · ${linhas.filter((l) => !l.dentroDaJanela).length} venda nova`
+            : ""}
+          {linhas.some((l) => l.planoCurto)
+            ? ` · ${linhas.filter((l) => l.planoCurto).length} plano curto`
             : ""}
         </span>
       </h3>
@@ -446,14 +466,17 @@ function MesDeComissao({
               </thead>
               <tbody>
                 {linhas.map((linha) => (
-                  <tr key={linha.matricula} className={linha.dentroDaJanela ? "" : "venda-nova"}>
+                  <tr
+                    key={linha.matricula}
+                    className={linha.dentroDaJanela && !linha.planoCurto ? "" : "venda-nova"}
+                  >
                     <td>
                       <span className="cliente-nome">{linha.nome}</span>
                       <span className="detalhe-cel">mat. {linha.matricula}</span>
                     </td>
                     <td className={linha.treinadorCreditado ? "treinador" : "sem"}>
                       {linha.treinadorCreditado || "sem vínculo"}
-                      {linha.dentroDaJanela ? null : (
+                      {linha.dentroDaJanela && !linha.planoCurto ? null : (
                         <span className="detalhe-cel">não comissionado como voucher</span>
                       )}
                       {linha.professorNoVoucher ? (
@@ -478,7 +501,16 @@ function MesDeComissao({
                       )}
                     </td>
                     <td>{linha.treinos}</td>
-                    <td className="vig">{linha.planoFechado || "—"}</td>
+                    <td className="vig">
+                      {linha.planoFechado || "—"}
+                      <span className={`detalhe-cel${linha.planoCurto ? " aberta" : ""}`}>
+                        {linha.semDuracao
+                          ? "duração não conferida"
+                          : `${linha.planoMeses} ${linha.planoMeses === 1 ? "mês" : "meses"}${
+                              linha.planoCurto ? " · fora da comissão" : ""
+                            }`}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -501,6 +533,18 @@ function MesDeComissao({
           pagamento, então o mês mistura as duas datas e uma venda pode estar no mês errado.
           Voucher já encerrado não volta para o sync: essas datas só entram num preenchimento
           retroativo, feito à mão. Até isso acontecer, não use este mês para pagar comissão.
+        </p>
+      ) : null}
+
+      {semDuracao ? (
+        <p className="nota-fora">
+          {semDuracao === linhas.length
+            ? `As ${semDuracao} vendas`
+            : `${semDuracao} das ${linhas.length} vendas`}{" "}
+          deste mês ainda estão sem a duração do plano conferida, e por isso entram na
+          contagem. Como o nome do plano é o mesmo para mensal e anual, só a duração separa
+          os dois — enquanto ela não vier, pode haver aqui plano de menos de{" "}
+          {MESES_MINIMO_COMISSAO} meses contado como comissão.
         </p>
       ) : null}
 
