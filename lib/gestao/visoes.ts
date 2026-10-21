@@ -392,6 +392,10 @@ function creditarContratos(
     dona.comissionada = !dona.tardia;
     dona.lancamentoOrigem = lancamento;
 
+    // Coordenador não recebe: olha quem levaria o crédito e, sem treinador web, quem
+    // acompanhou.
+    const coordenador = ehCoordenador(lancamento.treinadorWeb || lancamento.professor);
+
     linhas.push({
       matricula,
       nome: lancamento.nome,
@@ -409,6 +413,15 @@ function creditarContratos(
       treinos: dona.treinos,
       dentroDaJanela: dona.comissionada,
       diasDepoisDaVigencia: distanciaEmDias(dona.fim, contrato.data),
+      creditadoCoordenador: coordenador,
+      comissionada: dona.comissionada && !contrato.planoCurto && !coordenador,
+      motivoFora: !dona.comissionada
+        ? "venda-nova"
+        : contrato.planoCurto
+        ? "plano-curto"
+        : coordenador
+        ? "coordenador"
+        : null,
     });
   }
 
@@ -585,6 +598,42 @@ export interface LinhaComissao {
   dentroDaJanela: boolean;
   /** Dias entre o fim da vigência e a assinatura. Negativo: assinou durante a vigência. */
   diasDepoisDaVigencia: number;
+  /** Quem levaria o crédito é coordenador, e coordenador não recebe comissão. */
+  creditadoCoordenador: boolean;
+  /** A venda entra na conta da comissão. */
+  comissionada: boolean;
+  /** Por que ficou de fora, quando ficou. Um motivo só, o primeiro que se aplica. */
+  motivoFora: MotivoForaDaComissao | null;
+}
+
+export type MotivoForaDaComissao = "venda-nova" | "plano-curto" | "coordenador";
+
+export const TEXTO_MOTIVO_FORA: Record<MotivoForaDaComissao, string> = {
+  "venda-nova": "venda nova",
+  "plano-curto": "plano curto",
+  coordenador: "coordenador",
+};
+
+/**
+ * Coordenadores não recebem comissão de voucher — regra do Fernando em 21/10/2026, a
+ * partir do João Marcelo Michelletti Torres, creditado ao André Araujo Sanches.
+ *
+ * Os dois aparecem na base como treinador web de alguns vouchers (André em 8, Mauricio
+ * em 1) e o Mauricio também como professor, então a exclusão olha os dois campos: o
+ * treinador web e, quando não há, quem acompanhou. A regra do Fernando fala em "quem
+ * montou o treino" — esse dado a Pacto não expõe por API, e o vínculo de professor é o
+ * mais próximo que existe aqui.
+ */
+export const COORDENADORES_SEM_COMISSAO = ["ANDRÉ ARAUJO SANCHES", "MAURICIO ASSAF"];
+
+function semAcento(texto: string) {
+  return texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().trim();
+}
+
+export function ehCoordenador(nome: string | null) {
+  if (!nome) return false;
+  const alvo = semAcento(nome);
+  return COORDENADORES_SEM_COMISSAO.some((c) => semAcento(c) === alvo);
 }
 
 export interface ComissaoDoTreinador {
@@ -594,12 +643,12 @@ export interface ComissaoDoTreinador {
 
 /**
  * Quantos contratos cada treinador leva no mês. Cada contrato conta uma vez só, e só
- * entra o que é comissionado como voucher: nem venda nova nem plano curto geram
- * crédito de treinador.
+ * entra o que é comissionado como voucher: venda nova, plano curto e coordenador não
+ * geram crédito de treinador.
  */
 export function comissaoPorTreinador(linhas: LinhaComissao[]): ComissaoDoTreinador[] {
   const contagem = new Map<string, number>();
-  for (const linha of linhas.filter((l) => l.dentroDaJanela && !l.planoCurto)) {
+  for (const linha of linhas.filter((l) => l.comissionada)) {
     const quem = linha.treinadorCreditado || "sem treinador vinculado";
     contagem.set(quem, (contagem.get(quem) || 0) + 1);
   }

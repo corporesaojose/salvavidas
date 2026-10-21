@@ -2,11 +2,12 @@
 
 import { Fragment, useMemo, useState } from "react";
 import type { Voucher } from "@/lib/gestao/dados";
+import type { LinhaComissao, MotivoForaDaComissao } from "@/lib/gestao/visoes";
 import { rotuloPlano } from "@/lib/gestao/planos";
-import type { LinhaComissao } from "@/lib/gestao/visoes";
 import {
   JANELA_CREDITO_DIAS,
   MESES_MINIMO_COMISSAO,
+  TEXTO_MOTIVO_FORA,
   TIPOS_EXPERIENCIA,
   coortePorMes,
   comissaoPorTreinador,
@@ -55,6 +56,18 @@ function dataCurta(iso: string) {
 
 function porcento(valor: number | null) {
   return valor === null ? "—" : `${Math.round(valor)}%`;
+}
+
+/** "1 venda nova · 2 plano curto" — por que cada venda ficou fora, e quantas. */
+function contarMotivos(linhas: LinhaComissao[]) {
+  const contagem = new Map<MotivoForaDaComissao, number>();
+  for (const linha of linhas) {
+    if (!linha.motivoFora) continue;
+    contagem.set(linha.motivoFora, (contagem.get(linha.motivoFora) || 0) + 1);
+  }
+  return Array.from(contagem.entries())
+    .map(([motivo, quantas]) => `${quantas} ${TEXTO_MOTIVO_FORA[motivo]}`)
+    .join(" · ");
 }
 
 function trimestreDe(mes: string) {
@@ -332,25 +345,17 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
               </span>
             </div>
             <div className="conv">
-              <span className="n">
-                {linhasDoTrimestre.filter((l) => l.dentroDaJanela && !l.planoCurto).length}
-              </span>
+              <span className="n">{linhasDoTrimestre.filter((l) => l.comissionada).length}</span>
               <span className="rot">
-                comissão de voucher — dentro dos {JANELA_CREDITO_DIAS} dias e com plano de{" "}
-                {MESES_MINIMO_COMISSAO} meses ou mais
+                comissão de voucher — dentro dos {JANELA_CREDITO_DIAS} dias, plano de{" "}
+                {MESES_MINIMO_COMISSAO} meses ou mais e crédito para quem recebe
               </span>
             </div>
-            <div className={linhasDoTrimestre.some((l) => !l.dentroDaJanela) ? "alerta" : ""}>
-              <span className="n">{linhasDoTrimestre.filter((l) => !l.dentroDaJanela).length}</span>
+            <div className={linhasDoTrimestre.some((l) => !l.comissionada) ? "alerta" : ""}>
+              <span className="n">{linhasDoTrimestre.filter((l) => !l.comissionada).length}</span>
               <span className="rot">
-                venda nova — passou dos {JANELA_CREDITO_DIAS} dias, não é comissionada como
-                voucher
-              </span>
-            </div>
-            <div className={linhasDoTrimestre.some((l) => l.planoCurto) ? "alerta" : ""}>
-              <span className="n">{linhasDoTrimestre.filter((l) => l.planoCurto).length}</span>
-              <span className="rot">
-                plano curto — menos de {MESES_MINIMO_COMISSAO} meses, fora da comissão
+                fora da comissão —{" "}
+                {contarMotivos(linhasDoTrimestre) || "nenhuma venda de fora no trimestre"}
               </span>
             </div>
             <div>
@@ -397,6 +402,11 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
           descrição para o mensal e para o anual, só a duração do contrato distingue.
         </p>
         <p>
+          <b>Coordenador não recebe comissão de voucher.</b> Quando o crédito cairia no André
+          Araujo Sanches ou no Mauricio Assaf, a venda fica de fora — eles coordenam. Vale para
+          quem está como treinador web e, quando não há treinador web, para quem acompanhou.
+        </p>
+        <p>
           <b>Relançamento reinicia a coorte.</b> Quando a pessoa não consegue vir e a consultora
           lança de novo, vale o início do voucher mais recente. Lançamentos encadeados até{" "}
           {JANELA_CREDITO_DIAS} dias um do outro são a mesma oportunidade; com intervalo maior,
@@ -438,13 +448,8 @@ function MesDeComissao({
       <h3>
         {nomeDoMes(mes)}
         <span className="cont">
-          {linhas.filter((l) => l.dentroDaJanela && !l.planoCurto).length} de voucher
-          {linhas.some((l) => !l.dentroDaJanela)
-            ? ` · ${linhas.filter((l) => !l.dentroDaJanela).length} venda nova`
-            : ""}
-          {linhas.some((l) => l.planoCurto)
-            ? ` · ${linhas.filter((l) => l.planoCurto).length} plano curto`
-            : ""}
+          {linhas.filter((l) => l.comissionada).length} de voucher
+          {contarMotivos(linhas) ? ` · ${contarMotivos(linhas)}` : ""}
         </span>
       </h3>
 
@@ -468,7 +473,7 @@ function MesDeComissao({
                 {linhas.map((linha) => (
                   <tr
                     key={linha.matricula}
-                    className={linha.dentroDaJanela && !linha.planoCurto ? "" : "venda-nova"}
+                    className={linha.comissionada ? "" : "venda-nova"}
                   >
                     <td>
                       <span className="cliente-nome">{linha.nome}</span>
@@ -476,8 +481,10 @@ function MesDeComissao({
                     </td>
                     <td className={linha.treinadorCreditado ? "treinador" : "sem"}>
                       {linha.treinadorCreditado || "sem vínculo"}
-                      {linha.dentroDaJanela && !linha.planoCurto ? null : (
-                        <span className="detalhe-cel">não comissionado como voucher</span>
+                      {linha.comissionada ? null : (
+                        <span className="detalhe-cel aberta">
+                          não comissionado · {TEXTO_MOTIVO_FORA[linha.motivoFora!]}
+                        </span>
                       )}
                       {linha.professorNoVoucher ? (
                         <span className="detalhe-cel">professor: {linha.professorNoVoucher}</span>
