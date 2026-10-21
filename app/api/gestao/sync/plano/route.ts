@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
   const [linhas] = await pool.query<RowDataPacket[]>(
     `SELECT chave, matricula, nome, data_lancamento, inicio_vigencia, fim_vigencia,
             plano, codigo_pessoa, treinador_web, professor, coordenador, fechou_plano,
-            frequencia
+            frequencia, data_venda
      FROM freepass_vouchers`
   );
 
@@ -98,6 +98,11 @@ export async function GET(request: NextRequest) {
       // faria a busca de vínculo se repetir todo dia sem nunca completar.
       faltaVinculo: (!linha.treinador_web && !linha.professor) || !linha.coordenador,
       fechouPlano: Number(linha.fechou_plano) === 1,
+      // A comissão paga pela data da venda. Sem este campo aqui o sync não teria como
+      // saber que ela já foi gravada, e buscaria período e contrato na Pacto toda
+      // rodada para quem já fechou — chamada à toa, que é o que esta rota existe para
+      // evitar.
+      dataVenda: dia(linha.data_venda),
     };
 
     if (fim >= hoje) {
