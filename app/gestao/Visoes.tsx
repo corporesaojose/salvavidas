@@ -23,7 +23,7 @@ import {
  * data está usando, porque foi a confusão entre elas que gerou o problema.
  *
  * A coorte se lê mês a mês (o trimestre entra como subtotal, para conferir contra o que
- * já foi apurado à mão) e a comissão se lê por trimestre com os meses separados: ela
+ * já foi apurado à mão) e a premiação se lê por trimestre com os meses separados: ela
  * fecha e congela por mês, então somar o trimestre num número só esconderia o que se
  * paga.
  */
@@ -80,7 +80,7 @@ type Visao = "coorte" | "mes" | "comissao";
 const ABAS: { id: Visao; rotulo: string; data: string }[] = [
   { id: "coorte", rotulo: "Coorte do voucher", data: "início do voucher" },
   { id: "mes", rotulo: "Mês corrente", data: "a vigência inteira" },
-  { id: "comissao", rotulo: "Comissão", data: "data da venda" },
+  { id: "comissao", rotulo: "Premiação trimestral", data: "data da venda" },
 ];
 
 export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: string }) {
@@ -134,7 +134,7 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
           <h2>Três leituras do mesmo dado</h2>
           <p className="sub">
             A mesma base lida por três datas diferentes. A coorte mede a experiência, o mês
-            corrente mede a operação e a comissão fecha o pagamento. Confundir uma com a outra
+            corrente mede a operação e a premiação fecha o pagamento. Confundir uma com a outra
             foi o que fez a lista do comercial não bater com a do relatório — por isso cada
             visão diz aqui qual data está usando.
           </p>
@@ -183,7 +183,7 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
           ? "O fechamento credita o mês em que a experiência começou, por mais tempo que leve: voucher em janeiro e contrato em julho é venda de janeiro, uma venda tardia. Não há prazo aqui, então mês nenhum fecha de vez — a coorte só troca de dono quando a pessoa faz uma experiência nova."
           : visao === "mes"
           ? "Quem tinha voucher em pé em algum dia do mês, mais os contratos assinados no mês. Serve para medir volume e carga da equipe, não para comparar meses: um mês herda voucher do anterior."
-          : `O dia em que a venda foi lançada e paga, que não é o dia em que o acesso do plano começa. Fecha o mês e congela — nunca é recalculada. Aqui sim vale a janela: venda até ${JANELA_CREDITO_DIAS} dias depois do fim da vigência é comissão de voucher, e o crédito vai para o treinador web do voucher mais recente antes dela. Passou disso é venda nova — continua na lista, porque alguém vendeu, mas não é comissionada como voucher.`}
+          : `O dia em que a venda foi lançada e paga, que não é o dia em que o acesso do plano começa. Fecha o mês e congela — nunca é recalculada. Aqui sim vale a janela: venda até ${JANELA_CREDITO_DIAS} dias depois do fim da vigência é premiação do voucher, e o crédito vai para o treinador web do voucher mais recente antes dela. Passou disso é venda nova — continua na lista, porque alguém vendeu, mas não entra na premiação.`}
       </p>
 
       {visao === "coorte" ? (
@@ -347,20 +347,20 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
             <div className="conv">
               <span className="n">{linhasDoTrimestre.filter((l) => l.comissionada).length}</span>
               <span className="rot">
-                comissão de voucher — dentro dos {JANELA_CREDITO_DIAS} dias, plano de{" "}
+                na premiação — dentro dos {JANELA_CREDITO_DIAS} dias, plano de{" "}
                 {MESES_MINIMO_COMISSAO} meses ou mais e crédito para quem recebe
               </span>
             </div>
             <div className={linhasDoTrimestre.some((l) => !l.comissionada) ? "alerta" : ""}>
               <span className="n">{linhasDoTrimestre.filter((l) => !l.comissionada).length}</span>
               <span className="rot">
-                fora da comissão —{" "}
+                fora da premiação —{" "}
                 {contarMotivos(linhasDoTrimestre) || "nenhuma venda de fora no trimestre"}
               </span>
             </div>
             <div>
               <span className="n">{comissaoPorTreinador(linhasDoTrimestre).length}</span>
-              <span className="rot">treinadores com comissão de voucher no trimestre</span>
+              <span className="rot">treinadores premiados no trimestre</span>
             </div>
           </div>
 
@@ -379,15 +379,15 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
 
       <div className="metodo">
         <p>
-          <b>A coorte não tem prazo; a comissão tem.</b> Toda venda é creditada à coorte do
+          <b>A coorte não tem prazo; a premiação tem.</b> Toda venda é creditada à coorte do
           voucher mais recente que a pessoa começou antes do contrato, por mais tempo que leve —
           se passou dos {JANELA_CREDITO_DIAS} dias da vigência, é uma venda tardia, e é por isso
-          que um mês antigo pode subir. Para a comissão, só é voucher o contrato assinado até{" "}
+          que um mês antigo pode subir. Para a premiação, só é voucher o contrato assinado até{" "}
           {JANELA_CREDITO_DIAS} dias depois do fim da vigência; passou disso é venda nova, que
-          continua na lista do mês mas não é comissionada como voucher.
+          continua na lista do mês mas não entra na premiação.
         </p>
         <p>
-          <b>A comissão usa a data da venda, não a do acesso.</b> A venda é lançada e paga num
+          <b>A premiação usa a data da venda, não a do acesso.</b> A venda é lançada e paga num
           dia e o acesso ao plano pode começar semanas depois — quem vendeu em setembro recebe
           em setembro, mesmo que o aluno só entre em outubro. Venda sem o dia do pagamento fica
           posicionada pelo início do acesso, e a lista do mês avisa quantas estão assim: o sync
@@ -395,14 +395,14 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
           preenchimento retroativo.
         </p>
         <p>
-          <b>Comissão é de plano com {MESES_MINIMO_COMISSAO} meses ou mais.</b> Mensal,
+          <b>Só entra na premiação plano de {MESES_MINIMO_COMISSAO} meses ou mais.</b> Mensal,
           trimestral e quadrimestral acontecem, são raros, e não entram — a venda fica na
           lista, marcada com a duração e fora da contagem, para ninguém precisar perguntar
           por que o número não fechou. O nome do plano não separa os dois: é a mesma
           descrição para o mensal e para o anual, só a duração do contrato distingue.
         </p>
         <p>
-          <b>Coordenador não recebe comissão de voucher.</b> Quando o crédito cairia no André
+          <b>Coordenador não entra na premiação.</b> Quando o crédito cairia no André
           Araujo Sanches ou no Mauricio Assaf, a venda fica de fora — eles coordenam. Vale pelo
           treinador web do voucher. Quando não há treinador web, quem montou o treino também
           deveria contar, mas a Pacto só devolve o programa vigente hoje, não o da época do
@@ -431,7 +431,7 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
   );
 }
 
-/** Um mês da comissão: a unidade que fecha e congela, por isso cada um tem o seu bloco. */
+/** Um mês da premiação: a unidade que fecha e congela, por isso cada um tem o seu bloco. */
 function MesDeComissao({
   mes,
   linhas,
@@ -485,7 +485,7 @@ function MesDeComissao({
                       {linha.treinadorCreditado || "sem vínculo"}
                       {linha.comissionada ? null : (
                         <span className="detalhe-cel aberta">
-                          não comissionado · {TEXTO_MOTIVO_FORA[linha.motivoFora!]}
+                          fora da premiação · {TEXTO_MOTIVO_FORA[linha.motivoFora!]}
                         </span>
                       )}
                       {linha.professorNoVoucher ? (
@@ -516,7 +516,7 @@ function MesDeComissao({
                         {linha.semDuracao
                           ? "duração não conferida"
                           : `${linha.planoMeses} ${linha.planoMeses === 1 ? "mês" : "meses"}${
-                              linha.planoCurto ? " · fora da comissão" : ""
+                              linha.planoCurto ? " · fora da premiação" : ""
                             }`}
                       </span>
                     </td>
@@ -541,7 +541,7 @@ function MesDeComissao({
           deste mês estão posicionadas pelo início do acesso ao plano, não pelo dia do
           pagamento, então o mês mistura as duas datas e uma venda pode estar no mês errado.
           Voucher já encerrado não volta para o sync: essas datas só entram num preenchimento
-          retroativo, feito à mão. Até isso acontecer, não use este mês para pagar comissão.
+          retroativo, feito à mão. Até isso acontecer, não use este mês para pagar.
         </p>
       ) : null}
 
@@ -553,7 +553,7 @@ function MesDeComissao({
           deste mês ainda estão sem a duração do plano conferida, e por isso entram na
           contagem. Como o nome do plano é o mesmo para mensal e anual, só a duração separa
           os dois — enquanto ela não vier, pode haver aqui plano de menos de{" "}
-          {MESES_MINIMO_COMISSAO} meses contado como comissão.
+          {MESES_MINIMO_COMISSAO} meses contado na premiação.
         </p>
       ) : null}
 
