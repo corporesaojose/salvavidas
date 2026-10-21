@@ -375,9 +375,10 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
         <p>
           <b>A comissão usa a data da venda, não a do acesso.</b> A venda é lançada e paga num
           dia e o acesso ao plano pode começar semanas depois — quem vendeu em setembro recebe
-          em setembro, mesmo que o aluno só entre em outubro. Enquanto o sync não trouxer o
-          pagamento de uma venda, ela fica posicionada pelo início do acesso e a lista do mês
-          avisa quantas estão assim.
+          em setembro, mesmo que o aluno só entre em outubro. Venda sem o dia do pagamento fica
+          posicionada pelo início do acesso, e a lista do mês avisa quantas estão assim: o sync
+          só alcança voucher com vigência correndo, então mês já passado só se acerta com um
+          preenchimento retroativo.
         </p>
         <p>
           <b>Relançamento reinicia a coorte.</b> Quando a pessoa não consegue vir e a consultora
@@ -492,10 +493,14 @@ function MesDeComissao({
 
       {semVenda ? (
         <p className="nota-fora">
-          {semVenda === linhas.length ? "Todas as" : `${semVenda} das`} linhas deste mês ainda
-          estão posicionadas pelo início do acesso ao plano, não pela data da venda: o sync
-          ainda não trouxe o pagamento delas. Enquanto isso, o mês mistura as duas datas e
-          algumas vendas podem estar no mês errado.
+          <b className="aberta">Mês ainda não fechado para pagamento.</b>{" "}
+          {semVenda === linhas.length
+            ? `Todas as ${semVenda} vendas`
+            : `${semVenda} das ${linhas.length} vendas`}{" "}
+          deste mês estão posicionadas pelo início do acesso ao plano, não pelo dia do
+          pagamento, então o mês mistura as duas datas e uma venda pode estar no mês errado.
+          Voucher já encerrado não volta para o sync: essas datas só entram num preenchimento
+          retroativo, feito à mão. Até isso acontecer, não use este mês para pagar comissão.
         </p>
       ) : null}
 
