@@ -66,7 +66,7 @@ type Visao = "coorte" | "mes" | "comissao";
 const ABAS: { id: Visao; rotulo: string; data: string }[] = [
   { id: "coorte", rotulo: "Coorte do voucher", data: "início do voucher" },
   { id: "mes", rotulo: "Mês corrente", data: "a vigência inteira" },
-  { id: "comissao", rotulo: "Comissão", data: "data do contrato" },
+  { id: "comissao", rotulo: "Comissão", data: "data da venda" },
 ];
 
 export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: string }) {
@@ -169,7 +169,7 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
           ? "O fechamento credita o mês em que a experiência começou, por mais tempo que leve: voucher em janeiro e contrato em julho é venda de janeiro, uma venda tardia. Não há prazo aqui, então mês nenhum fecha de vez — a coorte só troca de dono quando a pessoa faz uma experiência nova."
           : visao === "mes"
           ? "Quem tinha voucher em pé em algum dia do mês, mais os contratos assinados no mês. Serve para medir volume e carga da equipe, não para comparar meses: um mês herda voucher do anterior."
-          : `Fecha o mês e congela — nunca é recalculada. Aqui sim vale a janela: contrato até ${JANELA_CREDITO_DIAS} dias depois do fim da vigência é comissão de voucher, e o crédito vai para o treinador web do voucher mais recente antes da assinatura. Passou disso é venda nova — continua na lista, porque alguém vendeu, mas não é comissionada como voucher.`}
+          : `O dia em que a venda foi lançada e paga, que não é o dia em que o acesso do plano começa. Fecha o mês e congela — nunca é recalculada. Aqui sim vale a janela: venda até ${JANELA_CREDITO_DIAS} dias depois do fim da vigência é comissão de voucher, e o crédito vai para o treinador web do voucher mais recente antes dela. Passou disso é venda nova — continua na lista, porque alguém vendeu, mas não é comissionada como voucher.`}
       </p>
 
       {visao === "coorte" ? (
@@ -373,6 +373,13 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
           continua na lista do mês mas não é comissionada como voucher.
         </p>
         <p>
+          <b>A comissão usa a data da venda, não a do acesso.</b> A venda é lançada e paga num
+          dia e o acesso ao plano pode começar semanas depois — quem vendeu em setembro recebe
+          em setembro, mesmo que o aluno só entre em outubro. Enquanto o sync não trouxer o
+          pagamento de uma venda, ela fica posicionada pelo início do acesso e a lista do mês
+          avisa quantas estão assim.
+        </p>
+        <p>
           <b>Relançamento reinicia a coorte.</b> Quando a pessoa não consegue vir e a consultora
           lança de novo, vale o início do voucher mais recente. Lançamentos encadeados até{" "}
           {JANELA_CREDITO_DIAS} dias um do outro são a mesma oportunidade; com intervalo maior,
@@ -406,6 +413,7 @@ function MesDeComissao({
   foraDoRecorte: number;
 }) {
   const porTreinador = comissaoPorTreinador(linhas);
+  const semVenda = linhas.filter((l) => l.semDataDeVenda).length;
 
   return (
     <div className="mes-comissao">
@@ -429,7 +437,7 @@ function MesDeComissao({
                 <tr>
                   <th>Cliente</th>
                   <th>Treinador creditado</th>
-                  <th>Contrato</th>
+                  <th>Venda</th>
                   <th>Voucher de origem</th>
                   <th>Treinos na vigência</th>
                   <th>Plano</th>
@@ -451,7 +459,12 @@ function MesDeComissao({
                         <span className="detalhe-cel">professor: {linha.professorNoVoucher}</span>
                       ) : null}
                     </td>
-                    <td className="vig">{dataCurta(linha.dataContrato)}</td>
+                    <td className="vig">
+                      {dataCurta(linha.dataContrato)}
+                      {linha.semDataDeVenda ? (
+                        <span className="detalhe-cel">início do acesso</span>
+                      ) : null}
+                    </td>
                     <td className="vig">
                       {rotuloPlano(linha.origem.tipo)}
                       <span className="detalhe-cel">
@@ -476,6 +489,15 @@ function MesDeComissao({
           </p>
         </>
       )}
+
+      {semVenda ? (
+        <p className="nota-fora">
+          {semVenda === linhas.length ? "Todas as" : `${semVenda} das`} linhas deste mês ainda
+          estão posicionadas pelo início do acesso ao plano, não pela data da venda: o sync
+          ainda não trouxe o pagamento delas. Enquanto isso, o mês mistura as duas datas e
+          algumas vendas podem estar no mês errado.
+        </p>
+      ) : null}
 
       {foraDoRecorte ? (
         <p className="nota-fora">

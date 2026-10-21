@@ -29,7 +29,7 @@ leituras do mesmo dado", e implementadas em `lib/gestao/visoes.ts`.
 |---|---|---|
 | **Coorte** | início do voucher, **sem prazo** | mede a qualidade da experiência; o fechamento volta e credita o mês em que ela começou, por mais tempo que leve — então mês nenhum fecha de vez |
 | **Mês corrente** | a vigência inteira | operação: quem esteve em pé no mês e quantos contratos saíram; não serve para comparar meses |
-| **Comissão** | data do contrato | fecha o mês e **congela** — nunca recalcula, senão se pagaria duas vezes |
+| **Comissão** | data da **venda** | fecha o mês e **congela** — nunca recalcula, senão se pagaria duas vezes |
 
 Os três desempates:
 
@@ -42,7 +42,15 @@ Os três desempates:
   continua na lista do mês mas não é comissionada como voucher, nem para o treinador nem
   para o comercial. Caso de referência: Eliza Castro, voucher até 30/07 e contrato em
   02/10, 64 dias depois — conversão da coorte de julho, venda nova na comissão de outubro.
-- **A comissão vai para o treinador web do voucher mais recente antes do contrato** —
+- **A comissão paga pela data da venda, não pela do acesso** (definido pelo Fernando em
+  21/10/2026: "o mais correto seria pegar a data de pagamento"). A venda é lançada e paga
+  num dia — a casa cobra no ato — e o acesso ao plano pode começar semanas depois (Leila
+  Candelária Osman: venda 16/09, acesso 02/10). Quem vendeu em setembro recebe em
+  setembro. A data sai do `dataLancamento` do contrato na Pacto
+  (`GET /adm-core-ms/contratos/{codigo}`, que o sync já busca) e mora na coluna
+  `data_venda`; a antiga `data_contrato` continua guardando o início do acesso, que ainda
+  serve para saber quando o aluno entra de fato.
+- **A comissão vai para o treinador web do voucher mais recente antes da venda** —
   quem estava com a pessoa na hora da decisão. Professor (PR) é acompanhamento, não
   crédito.
 - **Relançamento reinicia a coorte.** Vale o início do voucher mais recente, e

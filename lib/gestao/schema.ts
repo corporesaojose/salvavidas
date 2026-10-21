@@ -84,6 +84,13 @@ const COLUNAS_NOVAS = [
   // acompanhado por alguém, mesmo sem TW — sem esta coluna o relatório contava essas
   // pessoas como vouchers órfãos e a recepção ia atrás de um vínculo que existia.
   "ALTER TABLE freepass_vouchers ADD COLUMN professor VARCHAR(120) NULL",
+  // O dia em que a venda foi lançada e paga (a casa cobra no ato), que é o
+  // `dataLancamento` do contrato na Pacto. Não confundir com a coluna `data_lancamento`
+  // acima, que é o lançamento do VOUCHER. E não confundir com `data_contrato`, que é o
+  // início do acesso do plano: a venda é lançada num dia e o acesso pode começar
+  // semanas depois (Leila Candelária Osman: venda 16/09, acesso 02/10). A comissão
+  // paga pela venda, então é esta data que ela usa.
+  "ALTER TABLE freepass_vouchers ADD COLUMN data_venda DATE NULL",
 ];
 
 export async function garantirSchema() {

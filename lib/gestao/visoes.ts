@@ -13,8 +13,10 @@ import type { Voucher } from "@/lib/gestao/dados";
  * 2. MÊS CORRENTE — a vigência inteira: quem tinha voucher em pé em algum dia do mês e
  *    quantos contratos saíram no mês. Visão de operação, não serve para comparar meses
  *    (um mês herda voucher do anterior).
- * 3. COMISSÃO — manda a data do contrato. Fecha o mês e congela: nunca recalcula, senão
- *    coorte e comissão reescreveriam o passado e se pagaria duas vezes.
+ * 3. COMISSÃO — manda a data da VENDA: o dia em que o contrato foi lançado e pago, que
+ *    não é o dia em que o acesso do plano começa (a venda sai num dia e o acesso pode
+ *    começar semanas depois). Fecha o mês e congela: nunca recalcula, senão coorte e
+ *    comissão reescreveriam o passado e se pagaria duas vezes.
  *
  * Os três desempates que ele escolheu estão implementados aqui e em nenhum outro lugar:
  * janela de crédito de 45 dias, crédito para o treinador do voucher mais recente antes
@@ -77,7 +79,21 @@ export function ultimoDiaDoMes(mes: string) {
 export interface ContratoDaPessoa {
   matricula: string;
   nome: string;
+  /**
+   * A data que manda: a da venda quando o sync já a trouxe, senão o início do acesso do
+   * plano. É ela que decide de qual voucher a venda é, se cabe na janela da comissão e
+   * em que mês a comissão cai.
+   */
   data: string;
+  /** O dia em que a venda foi lançada e paga, quando conhecido. */
+  dataVenda: string | null;
+  /** Início do acesso do plano — o que a Pacto chama de contrato. */
+  dataAcesso: string | null;
+  /**
+   * A venda ainda está sendo lida pelo início do acesso, porque o sync não trouxe a data
+   * de pagamento dela. A tela conta quantas são: enquanto houver, o mês mistura réguas.
+   */
+  semDataDeVenda: boolean;
   plano: string | null;
 }
 
@@ -177,11 +193,19 @@ export function prepararVisoes(
   // lançamento, e pode estar gravado numa linha que o recorte descarta.
   const contratos = new Map<string, ContratoDaPessoa>();
   for (const voucher of vouchers) {
-    if (!voucher.dataContrato || contratos.has(voucher.matricula)) continue;
+    const temVenda = Boolean(voucher.dataVenda);
+    if (!voucher.dataContrato && !temVenda) continue;
+    const jaTem = contratos.get(voucher.matricula);
+    // Uma linha com data de venda substitui uma que só tinha o início do acesso: o sync
+    // pode preencher a venda em qualquer linha da pessoa, não necessariamente na primeira.
+    if (jaTem && (!temVenda || !jaTem.semDataDeVenda)) continue;
     contratos.set(voucher.matricula, {
       matricula: voucher.matricula,
       nome: voucher.nome,
-      data: voucher.dataContrato,
+      data: voucher.dataVenda || (voucher.dataContrato as string),
+      dataVenda: voucher.dataVenda,
+      dataAcesso: voucher.dataContrato,
+      semDataDeVenda: !temVenda,
       plano: voucher.planoFechado,
     });
   }
@@ -336,6 +360,7 @@ function creditarContratos(
       fotoUrl: lancamento.fotoUrl,
       mes: mesDe(contrato.data),
       dataContrato: contrato.data,
+      semDataDeVenda: contrato.semDataDeVenda,
       planoFechado: contrato.plano,
       treinadorCreditado: lancamento.treinadorWeb,
       professorNoVoucher: lancamento.treinadorWeb ? null : lancamento.professor,
@@ -493,7 +518,10 @@ export interface LinhaComissao {
   fotoUrl: string | null;
   /** Mês da assinatura: é o que fecha e congela. */
   mes: string;
+  /** A data que vale: a da venda, ou o início do acesso enquanto ela não vier. */
   dataContrato: string;
+  /** Ainda lida pelo início do acesso: o sync não trouxe a data de pagamento. */
+  semDataDeVenda: boolean;
   planoFechado: string | null;
   /** Treinador web do voucher mais recente antes do contrato. */
   treinadorCreditado: string | null;

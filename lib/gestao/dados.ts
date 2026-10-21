@@ -19,6 +19,8 @@ export interface Voucher {
   fechou: boolean;
   planoFechado: string | null;
   dataContrato: string | null;
+  /** Dia da venda na Pacto. É a data que a comissão usa; null enquanto o sync não a trouxer. */
+  dataVenda: string | null;
   lancadoPor: string | null;
   situacaoAtual: string | null;
 }
@@ -103,6 +105,7 @@ export async function carregarDados(): Promise<DadosGestao> {
       fechou: Boolean(v.fechou_plano),
       planoFechado: v.plano_fechado,
       dataContrato: v.data_contrato ? dia(v.data_contrato) : null,
+      dataVenda: v.data_venda ? dia(v.data_venda) : null,
       lancadoPor: v.lancado_por,
       situacaoAtual: v.situacao_atual,
     })),
