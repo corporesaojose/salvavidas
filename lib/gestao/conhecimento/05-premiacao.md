@@ -1,5 +1,19 @@
 # Premiação da equipe por voucher
 
+> **Duas coisas diferentes se chamam "premiação" — não confundir.** Este arquivo
+> descreve a **escada de pontos**: degraus da jornada, duas trilhas, e o dono da trilha
+> do treinador é **quem fez a ATM**, como está escrito abaixo.
+>
+> A **premiação trimestral por venda**, que aparece na aba do `/gestao` e está sendo
+> montada com o financeiro, é outra conta: uma venda fechada, um crédito, e o dono é o
+> **treinador web** do voucher mais recente antes da venda. Decidido pelo Fernando em
+> 21/10/2026, perguntado exatamente contra o que está aqui — a resposta foi "treinador
+> web".
+>
+> Os critérios da aba estão em `02-regras-dos-vouchers.md` e no código, em
+> `lib/gestao/visoes.ts`: janela de 45 dias, plano de 6 meses ou mais, e coordenador
+> fora. Nada disso vale para a escada de pontos, e nada da escada vale para a aba.
+
 Duas trilhas independentes, com bolsos separados: uma premia **quem traz** a pessoa
 (indicação, por link próprio) e outra premia **quem faz a pessoa ficar** (o treinador
 que fez a ATM). A mesma pessoa indicada pode pagar as duas.
