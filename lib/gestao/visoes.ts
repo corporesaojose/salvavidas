@@ -392,9 +392,8 @@ function creditarContratos(
     dona.comissionada = !dona.tardia;
     dona.lancamentoOrigem = lancamento;
 
-    // Coordenador não recebe: olha quem levaria o crédito e, sem treinador web, quem
-    // acompanhou.
-    const coordenador = ehCoordenador(lancamento.treinadorWeb || lancamento.professor);
+    // Coordenador não recebe. Só o treinador web decide — ver COORDENADORES_SEM_COMISSAO.
+    const coordenador = ehCoordenador(lancamento.treinadorWeb);
 
     linhas.push({
       matricula,
@@ -618,11 +617,19 @@ export const TEXTO_MOTIVO_FORA: Record<MotivoForaDaComissao, string> = {
  * Coordenadores não recebem comissão de voucher — regra do Fernando em 21/10/2026, a
  * partir do João Marcelo Michelletti Torres, creditado ao André Araujo Sanches.
  *
- * Os dois aparecem na base como treinador web de alguns vouchers (André em 8, Mauricio
- * em 1) e o Mauricio também como professor, então a exclusão olha os dois campos: o
- * treinador web e, quando não há, quem acompanhou. A regra do Fernando fala em "quem
- * montou o treino" — esse dado a Pacto não expõe por API, e o vínculo de professor é o
- * mais próximo que existe aqui.
+ * A regra do Fernando fala em "o treinador web ou, quando não há, quem montou o treino".
+ * Aqui só o treinador web é olhado, de propósito: quem montou o treino a Pacto expõe
+ * sim (`professorMontou`, em `GET /TreinoWeb/prest/psec/programas/{id}`), mas o
+ * `programa-atual` devolve o programa VIGENTE, não o da época do voucher — o da Camile
+ * Oliveira é de outubro e o voucher dela foi em julho. Creditar por ele seria acertar a
+ * pessoa e errar a época.
+ *
+ * O vínculo de professor (PR) também não serve de atalho: parece a mesma coisa e não é.
+ * A Camile tem PR da Victoria Schirmer, e quem montou o treino dela foi o Renato
+ * Pagnan. Para fazer isto direito falta listar os programas de um aluno e escolher o que
+ * foi montado dentro da vigência — enquanto não houver isso, melhor um critério estreito
+ * e certo do que um largo e errado. Hoje nenhuma venda depende disso: as três pessoas
+ * com professor e sem treinador web não fecharam plano.
  */
 export const COORDENADORES_SEM_COMISSAO = ["ANDRÉ ARAUJO SANCHES", "MAURICIO ASSAF"];
 

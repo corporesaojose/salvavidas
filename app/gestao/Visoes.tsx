@@ -403,8 +403,10 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
         </p>
         <p>
           <b>Coordenador não recebe comissão de voucher.</b> Quando o crédito cairia no André
-          Araujo Sanches ou no Mauricio Assaf, a venda fica de fora — eles coordenam. Vale para
-          quem está como treinador web e, quando não há treinador web, para quem acompanhou.
+          Araujo Sanches ou no Mauricio Assaf, a venda fica de fora — eles coordenam. Vale pelo
+          treinador web do voucher. Quando não há treinador web, quem montou o treino também
+          deveria contar, mas a Pacto só devolve o programa vigente hoje, não o da época do
+          voucher — então essas vendas seguem na contagem até dar para olhar a ficha certa.
         </p>
         <p>
           <b>Relançamento reinicia a coorte.</b> Quando a pessoa não consegue vir e a consultora
