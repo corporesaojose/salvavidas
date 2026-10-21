@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { DadosGestao, Voucher } from "@/lib/gestao/dados";
 import { PENDENCIAS, TOTAL_PENDENCIAS } from "@/lib/gestao/pendencias";
@@ -134,6 +134,65 @@ type Dialogo =
  * volta a ser a rolagem comprida em que ninguém achava a tabela.
  */
 type Gaveta = "analises" | "pendencias" | null;
+
+/**
+ * Barra do topo: marca à esquerda, quem está logado à direita. O menu abre no clique e
+ * fecha no Esc ou ao clicar fora — o protótipo abria com :hover, que em tela sensível ao
+ * toque não existe e no mouse dispara sem querer.
+ */
+function MenuSuperior({ usuario, aoSair }: { usuario: string; aoSair: () => void }) {
+  const [aberto, setAberto] = useState(false);
+  const caixa = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!aberto) return;
+    function cliqueFora(e: MouseEvent) {
+      if (caixa.current && !caixa.current.contains(e.target as Node)) setAberto(false);
+    }
+    function tecla(e: KeyboardEvent) {
+      if (e.key === "Escape") setAberto(false);
+    }
+    document.addEventListener("mousedown", cliqueFora);
+    document.addEventListener("keydown", tecla);
+    return () => {
+      document.removeEventListener("mousedown", cliqueFora);
+      document.removeEventListener("keydown", tecla);
+    };
+  }, [aberto]);
+
+  return (
+    <div className="topo-menu">
+      <div className="topo-menu-logo">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img className="logo-imagem" src="/logo-corpore-horizontal.webp" alt="Corpore" />
+      </div>
+      <div className="topo-menu-acoes">
+        <div className="usuario-menu" ref={caixa}>
+          <button
+            className="usuario-topo"
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={aberto}
+            onClick={() => setAberto((a) => !a)}
+          >
+            <span className="avatar-usuario">{iniciais(usuario)}</span>
+            <span className="nome-usuario">{usuario}</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+          {aberto ? (
+            <div className="usuario-dropdown" role="menu">
+              <button className="usuario-dropdown-item" type="button" role="menuitem" onClick={aoSair}>
+                Sair
+              </button>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function Seta({ aberta }: { aberta: boolean }) {
   return (
@@ -301,23 +360,28 @@ export default function Relatorio({
   return (
     <main className="gestao">
       <div className="page">
+        <MenuSuperior
+          usuario={usuario}
+          aoSair={async () => {
+            await fetch("/api/gestao/login/", { method: "DELETE" });
+            router.refresh();
+          }}
+        />
+
         <header>
-          <div className="topo-linha">
-            <span className="eyebrow">Corpore · Free pass</span>
-            <span className="sessao">
-              {usuario}
-              <button
-                className="sair"
-                onClick={async () => {
-                  await fetch("/api/gestao/login/", { method: "DELETE" });
-                  router.refresh();
-                }}
-              >
-                sair
-              </button>
-            </span>
+          <div className="capa">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="capa-foto" src="/gestao-capa.png" alt="" />
+            <div className="capa-texto">
+              <span className="eyebrow">Corpore · Free pass</span>
+              <h1>Dashboard Vouchers</h1>
+              <p className="capa-sub">
+                Acompanhe o desempenho dos seus vouchers, converta mais visitas em alunos e
+                impulsione os resultados da sua unidade.
+              </p>
+              <p className="capa-citacao">&ldquo;Mais pessoas saudáveis para um futuro melhor.&rdquo;</p>
+            </div>
           </div>
-          <h1>Dashboard Vouchers</h1>
           <p className="fonte">
             Fonte: API Pacto (período de acesso, catraca, contratos e vínculos)
             {dados.atualizadoEm ? ` · dados atualizados em ${dados.atualizadoEm}` : ""}
@@ -346,10 +410,7 @@ export default function Relatorio({
               {pessoasFecharam}
               <small> de {pessoas}</small>
             </span>
-            <span className="rot">
-              fecharam plano — {pessoas ? Math.round((pessoasFecharam / pessoas) * 100) : 0}% de
-              conversão
-            </span>
+            <span className="rot">fecharam plano</span>
           </div>
           <div>
             <span className="n">{validos.length ? (somaFreq / validos.length).toFixed(1) : "0"}</span>
@@ -358,6 +419,16 @@ export default function Relatorio({
           <div>
             <span className="n">{semEntrada}</span>
             <span className="rot">vouchers sem nenhuma entrada na catraca</span>
+          </div>
+          {/* A taxa saiu de dentro do rótulo do card de fechamentos: é o número que se
+              olha primeiro e estava escrito como nota de rodapé de outro. */}
+          <div>
+            <span className="n">{pessoas ? Math.round((pessoasFecharam / pessoas) * 100) : 0}%</span>
+            <span className="rot">
+              taxa de conversão
+              <br />
+              {pessoasFecharam} de {pessoas} pessoas
+            </span>
           </div>
         </section>
 
@@ -543,6 +614,7 @@ export default function Relatorio({
           <div className="painel-grid">
             <div className="bloco">
               <h2>Mês a mês</h2>
+              <p>Comparativo entre vouchers concedidos e que fecharam plano</p>
               <Barras
                 grupos={meses
                   .map((m) => {
@@ -563,6 +635,7 @@ export default function Relatorio({
 
             <div className="bloco">
               <h2>Conversão por dias treinados</h2>
+              <p>Quantas pessoas fecharam plano em cada faixa de frequência na catraca</p>
               <Barras
                 grupos={faixas
                   .map((f) => {
