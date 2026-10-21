@@ -6,9 +6,10 @@ import type { Voucher } from "@/lib/gestao/dados";
  * São três recortes do mesmo dado, e a regra que organiza tudo é: **toda métrica declara
  * qual data está usando**.
  *
- * 1. COORTE — manda o início do voucher. Mede a qualidade da experiência. O fechamento
- *    volta e credita o mês em que a experiência começou, então mês recente ainda sobe
- *    por semanas; é característica, não erro (daí `naJanela`).
+ * 1. COORTE — manda o início do voucher, e **sem prazo**. O fechamento volta e credita o
+ *    mês em que a experiência começou, por mais tempo que leve: voucher em janeiro,
+ *    contrato em julho, é venda de janeiro — uma venda tardia. Mês nenhum fecha de vez;
+ *    é característica, não erro (daí `tardia`, para o mês não subir sem explicação).
  * 2. MÊS CORRENTE — a vigência inteira: quem tinha voucher em pé em algum dia do mês e
  *    quantos contratos saíram no mês. Visão de operação, não serve para comparar meses
  *    (um mês herda voucher do anterior).
@@ -21,10 +22,14 @@ import type { Voucher } from "@/lib/gestao/dados";
  */
 
 /**
- * Janela de crédito. Contrato assinado até 45 dias depois do fim da vigência conta como
- * conversão daquele voucher; passou disso é venda nova e aparece só na comissão (caso de
- * referência: Eliza Castro, voucher em julho e contrato em 02/10). O mesmo número separa
- * dois lançamentos: encadeados até 45 dias um do outro são a mesma oportunidade.
+ * Janela de crédito, **da comissão**. Contrato assinado até 45 dias depois do fim da
+ * vigência é comissão de voucher; passou disso é venda nova — continua na lista, porque
+ * alguém vendeu, mas não é comissionada como voucher nem para o treinador nem para o
+ * comercial. Caso de referência: Eliza Castro, voucher até 30/07 e contrato em 02/10,
+ * 64 dias depois — conversão da coorte de julho, venda nova na comissão de outubro.
+ *
+ * A coorte não usa este número: ela não tem prazo. O mesmo 45 separa dois lançamentos —
+ * encadeados até 45 dias um do outro são a mesma oportunidade.
  */
 export const JANELA_CREDITO_DIAS = 45;
 
@@ -100,11 +105,18 @@ export interface Oportunidade {
   treinos: number;
   treinadorWeb: string | null;
   professor: string | null;
-  /** O contrato da pessoa, quando cai na janela desta oportunidade. */
+  /** O contrato da pessoa, quando esta oportunidade é a dona dele. */
   contrato: ContratoDaPessoa | null;
   fechou: boolean;
-  /** Sem contrato e ainda dentro dos 45 dias: este número pode subir. */
-  naJanela: boolean;
+  /**
+   * Fechou depois dos 45 dias do fim da vigência. Continua sendo conversão desta coorte
+   * — a coorte não tem prazo —, mas não é comissionada como voucher.
+   */
+  tardia: boolean;
+  /** Fechou dentro dos 45 dias: é a venda que gera comissão de voucher. */
+  comissionada: boolean;
+  /** O lançamento mais recente antes do contrato: é dele que sai o crédito. */
+  lancamentoOrigem: Voucher | null;
 }
 
 export interface BaseVisoes {
@@ -200,14 +212,14 @@ export function prepararVisoes(
       if (distanciaEmDias(fimAcumulado, voucher.inicioVigencia) <= JANELA_CREDITO_DIAS) {
         sequencia.push(voucher);
       } else {
-        oportunidades.push(montarOportunidade(sequencia, contratos, hoje));
+        oportunidades.push(montarOportunidade(sequencia));
         sequencia = [voucher];
         fimAcumulado = voucher.fimVigencia;
         continue;
       }
       if (voucher.fimVigencia > fimAcumulado) fimAcumulado = voucher.fimVigencia;
     }
-    oportunidades.push(montarOportunidade(sequencia, contratos, hoje));
+    oportunidades.push(montarOportunidade(sequencia));
   }
 
   oportunidades.sort(
@@ -215,7 +227,7 @@ export function prepararVisoes(
   );
 
   const meses = Array.from(new Set(oportunidades.map((o) => o.coorte))).sort();
-  const { linhas, foraDoRecorte } = montarComissao(oportunidades, contratos);
+  const { linhas, foraDoRecorte } = creditarContratos(oportunidades, contratos);
 
   return {
     hoje,
@@ -230,11 +242,7 @@ export function prepararVisoes(
   };
 }
 
-function montarOportunidade(
-  sequencia: Voucher[],
-  contratos: Map<string, ContratoDaPessoa>,
-  hoje: string
-): Oportunidade {
+function montarOportunidade(sequencia: Voucher[]): Oportunidade {
   const recente = sequencia[sequencia.length - 1];
   const fim = sequencia.reduce(
     (maior, v) => (v.fimVigencia > maior ? v.fimVigencia : maior),
@@ -242,16 +250,9 @@ function montarOportunidade(
   );
   const limiteCredito = somarDias(fim, JANELA_CREDITO_DIAS);
 
-  const daPessoa = contratos.get(recente.matricula) || null;
-  // Só conta como conversão desta oportunidade o contrato assinado de dentro da vigência
-  // até o limite da janela. Fora disso o contrato existe, mas é de outra oportunidade da
-  // mesma pessoa ou venda nova.
-  const contrato =
-    daPessoa &&
-    daPessoa.data >= sequencia[0].inicioVigencia &&
-    daPessoa.data <= limiteCredito
-      ? daPessoa
-      : null;
+  // O contrato é creditado depois, em creditarContratos: quem fica com ele depende de
+  // todas as oportunidades da pessoa, não dá para decidir olhando uma só.
+  const contrato = null;
 
   return {
     matricula: recente.matricula,
@@ -269,9 +270,87 @@ function montarOportunidade(
     treinadorWeb: recente.treinadorWeb,
     professor: recente.professor,
     contrato,
-    fechou: Boolean(contrato),
-    naJanela: !contrato && hoje <= limiteCredito,
+    fechou: false,
+    tardia: false,
+    comissionada: false,
+    lancamentoOrigem: null,
   };
+}
+
+/**
+ * Credita cada contrato à oportunidade dona dele e devolve a lista da comissão.
+ *
+ * A regra da coorte **não tem prazo**: o contrato é da coorte do voucher mais recente
+ * que a pessoa começou antes dele, por mais tempo que tenha passado. Voucher em janeiro,
+ * a pessoa some, volta em julho e fecha: para a coorte é venda de janeiro, uma venda
+ * tardia. A coorte só troca de dono quando a pessoa faz uma experiência nova — e aí o
+ * voucher novo é uma oportunidade nova, que é o encadeamento logo acima.
+ *
+ * Os 45 dias são critério **da comissão**, não da coorte: contrato até 45 dias depois do
+ * fim da vigência é comissão de voucher; passou disso é venda nova, continua aparecendo
+ * na lista (alguém vendeu), mas não é comissionada como voucher.
+ */
+function creditarContratos(
+  oportunidades: Oportunidade[],
+  contratos: Map<string, ContratoDaPessoa>
+): { linhas: LinhaComissao[]; foraDoRecorte: ContratoDaPessoa[] } {
+  const porPessoa = new Map<string, Oportunidade[]>();
+  for (const oportunidade of oportunidades) {
+    const lista = porPessoa.get(oportunidade.matricula);
+    if (lista) lista.push(oportunidade);
+    else porPessoa.set(oportunidade.matricula, [oportunidade]);
+  }
+
+  const linhas: LinhaComissao[] = [];
+  const foraDoRecorte: ContratoDaPessoa[] = [];
+
+  for (const [matricula, contrato] of Array.from(contratos.entries())) {
+    // O voucher de origem é o lançamento mais recente que já havia começado quando o
+    // contrato saiu; a oportunidade dele fica com a venda.
+    let dona: Oportunidade | null = null;
+    let lancamento: Voucher | null = null;
+    for (const oportunidade of porPessoa.get(matricula) || []) {
+      for (const candidato of oportunidade.lancamentos) {
+        if (candidato.inicioVigencia > contrato.data) continue;
+        if (!lancamento || candidato.inicioVigencia >= lancamento.inicioVigencia) {
+          lancamento = candidato;
+          dona = oportunidade;
+        }
+      }
+    }
+
+    if (!dona || !lancamento) {
+      foraDoRecorte.push(contrato);
+      continue;
+    }
+
+    dona.contrato = contrato;
+    dona.fechou = true;
+    dona.tardia = contrato.data > dona.limiteCredito;
+    dona.comissionada = !dona.tardia;
+    dona.lancamentoOrigem = lancamento;
+
+    linhas.push({
+      matricula,
+      nome: lancamento.nome,
+      fotoUrl: lancamento.fotoUrl,
+      mes: mesDe(contrato.data),
+      dataContrato: contrato.data,
+      planoFechado: contrato.plano,
+      treinadorCreditado: lancamento.treinadorWeb,
+      professorNoVoucher: lancamento.treinadorWeb ? null : lancamento.professor,
+      origem: dona,
+      treinos: dona.treinos,
+      dentroDaJanela: dona.comissionada,
+      diasDepoisDaVigencia: distanciaEmDias(dona.fim, contrato.data),
+    });
+  }
+
+  linhas.sort(
+    (a, b) => a.dataContrato.localeCompare(b.dataContrato) || a.nome.localeCompare(b.nome)
+  );
+  foraDoRecorte.sort((a, b) => a.data.localeCompare(b.data));
+  return { linhas, foraDoRecorte };
 }
 
 /* ---------- visão 1: coorte ---------- */
@@ -283,8 +362,11 @@ export interface CoorteMes {
   lancamentos: number;
   fecharam: number;
   conversao: number | null;
-  /** Quantas ainda podem fechar: sem contrato e dentro dos 45 dias. */
-  naJanela: number;
+  /**
+   * Quantos desses fechamentos vieram depois dos 45 dias. Sem isso um mês antigo sobe
+   * sem explicação: a coorte não fecha nunca, porque não tem prazo.
+   */
+  tardias: number;
   treinosMedia: number | null;
   semNenhumTreino: number;
 }
@@ -300,7 +382,7 @@ function somarCoorte(mes: string, oportunidades: Oportunidade[]): CoorteMes {
     conversao: oportunidades.length
       ? Math.round((fecharam / oportunidades.length) * 1000) / 10
       : null,
-    naJanela: oportunidades.filter((o) => o.naJanela).length,
+    tardias: oportunidades.filter((o) => o.tardia).length,
     treinosMedia: oportunidades.length
       ? Math.round((treinos / oportunidades.length) * 10) / 10
       : null,
@@ -421,70 +503,13 @@ export interface LinhaComissao {
   origem: Oportunidade;
   /** Dias de treino na vigência do voucher de origem. */
   treinos: number;
-  /** Contrato dentro dos 45 dias do voucher de origem. Fora disso é venda nova. */
+  /**
+   * Contrato dentro dos 45 dias do fim da vigência: é comissão de voucher. Fora disso é
+   * venda nova — continua na lista, porque alguém vendeu, mas não é comissionada.
+   */
   dentroDaJanela: boolean;
-}
-
-/**
- * A lista que sustenta o pagamento. Uma linha por contrato, pela data da assinatura.
- * O crédito vai para o treinador web do voucher mais recente da pessoa antes do
- * contrato — quem estava com ela na hora da decisão. Professor (vínculo PR) aparece
- * como informação e não recebe crédito: a regra fala de treinador web.
- */
-function montarComissao(
-  oportunidades: Oportunidade[],
-  contratos: Map<string, ContratoDaPessoa>
-): { linhas: LinhaComissao[]; foraDoRecorte: ContratoDaPessoa[] } {
-  const porPessoa = new Map<string, Oportunidade[]>();
-  for (const oportunidade of oportunidades) {
-    const lista = porPessoa.get(oportunidade.matricula);
-    if (lista) lista.push(oportunidade);
-    else porPessoa.set(oportunidade.matricula, [oportunidade]);
-  }
-
-  const linhas: LinhaComissao[] = [];
-  const foraDoRecorte: ContratoDaPessoa[] = [];
-
-  for (const [matricula, contrato] of Array.from(contratos.entries())) {
-    // O voucher de origem é o lançamento mais recente que já havia começado quando o
-    // contrato saiu; a oportunidade dele é que diz treinos e se foi conversão.
-    let origem: Oportunidade | null = null;
-    let lancamento: Voucher | null = null;
-    for (const oportunidade of porPessoa.get(matricula) || []) {
-      for (const candidato of oportunidade.lancamentos) {
-        if (candidato.inicioVigencia > contrato.data) continue;
-        if (!lancamento || candidato.inicioVigencia >= lancamento.inicioVigencia) {
-          lancamento = candidato;
-          origem = oportunidade;
-        }
-      }
-    }
-
-    if (!origem || !lancamento) {
-      foraDoRecorte.push(contrato);
-      continue;
-    }
-
-    linhas.push({
-      matricula,
-      nome: lancamento.nome,
-      fotoUrl: lancamento.fotoUrl,
-      mes: mesDe(contrato.data),
-      dataContrato: contrato.data,
-      planoFechado: contrato.plano,
-      treinadorCreditado: lancamento.treinadorWeb,
-      professorNoVoucher: lancamento.treinadorWeb ? null : lancamento.professor,
-      origem,
-      treinos: origem.treinos,
-      dentroDaJanela: origem.fechou,
-    });
-  }
-
-  linhas.sort(
-    (a, b) => a.dataContrato.localeCompare(b.dataContrato) || a.nome.localeCompare(b.nome)
-  );
-  foraDoRecorte.sort((a, b) => a.data.localeCompare(b.data));
-  return { linhas, foraDoRecorte };
+  /** Dias entre o fim da vigência e a assinatura. Negativo: assinou durante a vigência. */
+  diasDepoisDaVigencia: number;
 }
 
 export interface ComissaoDoTreinador {
@@ -492,10 +517,13 @@ export interface ComissaoDoTreinador {
   contratos: number;
 }
 
-/** Quantos contratos cada treinador leva no mês. Cada contrato conta uma vez só. */
+/**
+ * Quantos contratos cada treinador leva no mês. Cada contrato conta uma vez só, e só
+ * entra o que é comissionado como voucher: venda nova não gera crédito de treinador.
+ */
 export function comissaoPorTreinador(linhas: LinhaComissao[]): ComissaoDoTreinador[] {
   const contagem = new Map<string, number>();
-  for (const linha of linhas) {
+  for (const linha of linhas.filter((l) => l.dentroDaJanela)) {
     const quem = linha.treinadorCreditado || "sem treinador vinculado";
     contagem.set(quem, (contagem.get(quem) || 0) + 1);
   }

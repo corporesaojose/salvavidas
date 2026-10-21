@@ -27,15 +27,21 @@ leituras do mesmo dado", e implementadas em `lib/gestao/visoes.ts`.
 
 | Leitura | Data que manda | Para que serve |
 |---|---|---|
-| **Coorte** | início do voucher | mede a qualidade da experiência; o fechamento volta e credita o mês em que ela começou, então mês recente ainda sobe |
+| **Coorte** | início do voucher, **sem prazo** | mede a qualidade da experiência; o fechamento volta e credita o mês em que ela começou, por mais tempo que leve — então mês nenhum fecha de vez |
 | **Mês corrente** | a vigência inteira | operação: quem esteve em pé no mês e quantos contratos saíram; não serve para comparar meses |
 | **Comissão** | data do contrato | fecha o mês e **congela** — nunca recalcula, senão se pagaria duas vezes |
 
 Os três desempates:
 
-- **Janela de crédito de 45 dias.** Contrato assinado até 45 dias depois do fim da
-  vigência é conversão daquele voucher; depois disso é venda nova e aparece só na
-  comissão. Caso de referência: Eliza Castro, voucher em julho e contrato em 02/10.
+- **Os 45 dias são da comissão, não da coorte** (corrigido pelo Fernando em 21/10/2026,
+  depois de uma primeira versão que aplicava a janela nas duas). Na **coorte não existe
+  prazo**: toda venda credita o mês do voucher mais recente que a pessoa iniciou antes do
+  contrato, quanto tempo for — voucher em janeiro, experiência feita, volta em julho e
+  fecha, é venda de janeiro, uma **venda tardia**. Na **comissão**, contrato até 45 dias
+  depois do fim da vigência é comissão de voucher; passou disso é **venda nova**, que
+  continua na lista do mês mas não é comissionada como voucher, nem para o treinador nem
+  para o comercial. Caso de referência: Eliza Castro, voucher até 30/07 e contrato em
+  02/10, 64 dias depois — conversão da coorte de julho, venda nova na comissão de outubro.
 - **A comissão vai para o treinador web do voucher mais recente antes do contrato** —
   quem estava com a pessoa na hora da decisão. Professor (PR) é acompanhamento, não
   crédito.
@@ -46,8 +52,8 @@ Os três desempates:
   gravada nas três linhas dela).
 
 Duas coisas que a leitura precisa saber: a régua conferida à mão no 3º trimestre é só
-sobre **7 e 15 dias** (87 pessoas, 31 fechamentos, 36%); e **vigência de um dia só não é
-voucher** — é o passe de catraca do dia da assinatura, fica fora das contas.
+sobre **7 e 15 dias** (87 pessoas, 32 vendas, 37%, uma delas tardia); e **vigência de um
+dia só não é voucher** — é o passe de catraca do dia da assinatura, fica fora das contas.
 
 ## O que a duração real quer dizer
 

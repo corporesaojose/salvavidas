@@ -166,10 +166,10 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
       <p className="regua">
         <b>A data que manda nesta visão: {abaAtual.data}.</b>{" "}
         {visao === "coorte"
-          ? `O fechamento credita o mês em que a experiência começou, mesmo que o contrato venha depois — então mês recente ainda sobe. Relançamento reinicia a coorte, e o contrato precisa sair em até ${JANELA_CREDITO_DIAS} dias do fim da vigência.`
+          ? "O fechamento credita o mês em que a experiência começou, por mais tempo que leve: voucher em janeiro e contrato em julho é venda de janeiro, uma venda tardia. Não há prazo aqui, então mês nenhum fecha de vez — a coorte só troca de dono quando a pessoa faz uma experiência nova."
           : visao === "mes"
           ? "Quem tinha voucher em pé em algum dia do mês, mais os contratos assinados no mês. Serve para medir volume e carga da equipe, não para comparar meses: um mês herda voucher do anterior."
-          : "Fecha o mês e congela — nunca é recalculada, não importa quando o voucher começou. O crédito vai para o treinador web do voucher mais recente da pessoa antes da assinatura."}
+          : `Fecha o mês e congela — nunca é recalculada. Aqui sim vale a janela: contrato até ${JANELA_CREDITO_DIAS} dias depois do fim da vigência é comissão de voucher, e o crédito vai para o treinador web do voucher mais recente antes da assinatura. Passou disso é venda nova — continua na lista, porque alguém vendeu, mas não é comissionada como voucher.`}
       </p>
 
       {visao === "coorte" ? (
@@ -191,12 +191,12 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
               <span className="n">{totalDaBase.treinosMedia?.toFixed(1) ?? "—"}</span>
               <span className="rot">dias de treino por pessoa, somando a vigência</span>
             </div>
-            <div className={totalDaBase.naJanela ? "alerta" : ""}>
-              <span className="n">{totalDaBase.naJanela}</span>
+            <div className={totalDaBase.tardias ? "alerta" : ""}>
+              <span className="n">{totalDaBase.tardias}</span>
               <span className="rot">
-                {totalDaBase.naJanela
-                  ? `ainda dentro dos ${JANELA_CREDITO_DIAS} dias — esses meses podem subir`
-                  : "nenhuma na janela: tudo fechado"}
+                {totalDaBase.tardias
+                  ? `vendas tardias — fecharam mais de ${JANELA_CREDITO_DIAS} dias depois da vigência`
+                  : "nenhuma venda tardia até agora"}
               </span>
             </div>
           </div>
@@ -209,7 +209,7 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
                   <th>Pessoas</th>
                   <th>Fecharam</th>
                   <th>Conversão</th>
-                  <th>Ainda na janela</th>
+                  <th>Vendas tardias</th>
                   <th>Treinos (média)</th>
                 </tr>
               </thead>
@@ -243,8 +243,8 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
                         </td>
                         <td>{linha.fecharam}</td>
                         <td className="conversao">{porcento(linha.conversao)}</td>
-                        <td className={linha.naJanela ? "aberta" : ""}>
-                          {linha.naJanela ? `${linha.naJanela} podem fechar` : "fechada"}
+                        <td className={linha.tardias ? "aberta" : ""}>
+                          {linha.tardias ? `${linha.tardias} de ${linha.fecharam}` : "—"}
                         </td>
                         <td>{linha.treinosMedia?.toFixed(1) ?? "—"}</td>
                       </tr>
@@ -258,8 +258,8 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
                           </td>
                           <td>{subtotal.fecharam}</td>
                           <td className="conversao">{porcento(subtotal.conversao)}</td>
-                          <td className={subtotal.naJanela ? "aberta" : ""}>
-                            {subtotal.naJanela ? `${subtotal.naJanela} podem fechar` : "fechado"}
+                          <td className={subtotal.tardias ? "aberta" : ""}>
+                            {subtotal.tardias ? `${subtotal.tardias} de ${subtotal.fecharam}` : "—"}
                           </td>
                           <td>{subtotal.treinosMedia?.toFixed(1) ?? "—"}</td>
                         </tr>
@@ -333,18 +333,20 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
             <div className="conv">
               <span className="n">{linhasDoTrimestre.filter((l) => l.dentroDaJanela).length}</span>
               <span className="rot">
-                conversão de voucher — dentro dos {JANELA_CREDITO_DIAS} dias
+                comissão de voucher — assinados em até {JANELA_CREDITO_DIAS} dias do fim da
+                vigência
               </span>
             </div>
-            <div>
+            <div className={linhasDoTrimestre.some((l) => !l.dentroDaJanela) ? "alerta" : ""}>
               <span className="n">{linhasDoTrimestre.filter((l) => !l.dentroDaJanela).length}</span>
               <span className="rot">
-                venda nova — voucher antigo, fora da janela, mas o contrato é do trimestre
+                venda nova — passou dos {JANELA_CREDITO_DIAS} dias, não é comissionada como
+                voucher
               </span>
             </div>
             <div>
               <span className="n">{comissaoPorTreinador(linhasDoTrimestre).length}</span>
-              <span className="rot">treinadores com contrato no trimestre</span>
+              <span className="rot">treinadores com comissão de voucher no trimestre</span>
             </div>
           </div>
 
@@ -363,9 +365,12 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
 
       <div className="metodo">
         <p>
-          <b>Janela de crédito: {JANELA_CREDITO_DIAS} dias.</b> Um contrato só conta como
-          conversão do voucher se for assinado até {JANELA_CREDITO_DIAS} dias depois do fim da
-          vigência. Passou disso é venda nova e aparece só na comissão.
+          <b>A coorte não tem prazo; a comissão tem.</b> Toda venda é creditada à coorte do
+          voucher mais recente que a pessoa começou antes do contrato, por mais tempo que leve —
+          se passou dos {JANELA_CREDITO_DIAS} dias da vigência, é uma venda tardia, e é por isso
+          que um mês antigo pode subir. Para a comissão, só é voucher o contrato assinado até{" "}
+          {JANELA_CREDITO_DIAS} dias depois do fim da vigência; passou disso é venda nova, que
+          continua na lista do mês mas não é comissionada como voucher.
         </p>
         <p>
           <b>Relançamento reinicia a coorte.</b> Quando a pessoa não consegue vir e a consultora
@@ -407,7 +412,10 @@ function MesDeComissao({
       <h3>
         {nomeDoMes(mes)}
         <span className="cont">
-          {linhas.length} contrato{linhas.length === 1 ? "" : "s"}
+          {linhas.filter((l) => l.dentroDaJanela).length} de voucher
+          {linhas.some((l) => !l.dentroDaJanela)
+            ? ` · ${linhas.filter((l) => !l.dentroDaJanela).length} venda nova`
+            : ""}
         </span>
       </h3>
 
@@ -429,13 +437,16 @@ function MesDeComissao({
               </thead>
               <tbody>
                 {linhas.map((linha) => (
-                  <tr key={linha.matricula}>
+                  <tr key={linha.matricula} className={linha.dentroDaJanela ? "" : "venda-nova"}>
                     <td>
                       <span className="cliente-nome">{linha.nome}</span>
                       <span className="detalhe-cel">mat. {linha.matricula}</span>
                     </td>
                     <td className={linha.treinadorCreditado ? "treinador" : "sem"}>
                       {linha.treinadorCreditado || "sem vínculo"}
+                      {linha.dentroDaJanela ? null : (
+                        <span className="detalhe-cel">não comissionado como voucher</span>
+                      )}
                       {linha.professorNoVoucher ? (
                         <span className="detalhe-cel">professor: {linha.professorNoVoucher}</span>
                       ) : null}
@@ -445,8 +456,12 @@ function MesDeComissao({
                       {rotuloPlano(linha.origem.tipo)}
                       <span className="detalhe-cel">
                         {dataCurta(linha.origem.inicioPrimeiro)} – {dataCurta(linha.origem.fim)}
-                        {linha.dentroDaJanela ? "" : " · venda nova"}
                       </span>
+                      {linha.dentroDaJanela ? null : (
+                        <span className="detalhe-cel aberta">
+                          venda nova · {Math.round(linha.diasDepoisDaVigencia)} dias depois
+                        </span>
+                      )}
                     </td>
                     <td>{linha.treinos}</td>
                     <td className="vig">{linha.planoFechado || "—"}</td>
