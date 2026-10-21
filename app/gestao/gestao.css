@@ -142,6 +142,52 @@
 .gestao .placar .rot { font-size: 13px; color: var(--muted); }
 .gestao .placar .destaque .n { color: var(--won); }
 
+/* ---------- gavetas de consulta ---------- */
+/* Análise e conferência são consulta ocasional. Ficam atrás destes dois botões, e a
+   página abre no que se usa todo dia: a lista de vouchers. */
+
+.gestao .gavetas { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+
+.gestao button.gaveta-botao {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  padding: 14px 18px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--rule-strong);
+  font: inherit;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.gestao button.gaveta-botao:hover { border-color: var(--rule-strong); border-left-color: var(--ink); }
+.gestao button.gaveta-botao[aria-expanded="true"] { border-left-color: var(--accent); background: var(--surface); }
+
+.gestao .gaveta-botao .seta { color: var(--muted); flex: none; transition: transform 160ms ease; }
+.gestao .gaveta-botao .seta.aberta { transform: rotate(90deg); color: var(--ink); }
+
+.gestao .gaveta-botao > span { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.gestao .gaveta-botao .titulo { font-family: var(--titulo); font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+.gestao .gaveta-botao .sub { font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+
+/* O número do que falta resolver continua à vista com a gaveta fechada. */
+.gestao .gaveta-botao .selo {
+  flex: none;
+  min-width: 26px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.gestao .abas-bloco { display: flex; flex-direction: column; gap: 10px; }
+
 /* ---------- checklist ---------- */
 
 .gestao .tarefas {
@@ -613,6 +659,7 @@
   .gestao .placar > div:nth-child(3),
   .gestao .placar > div:nth-child(4) { border-top: 1px solid var(--rule); }
   .gestao .grupos { grid-template-columns: 1fr; }
+  .gestao .gavetas { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

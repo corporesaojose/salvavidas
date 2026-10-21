@@ -128,6 +128,32 @@ type Dialogo =
   | { tipo: "resolver"; id: string }
   | null;
 
+/**
+ * O que a página mostra por padrão é a lista de vouchers. Análise e conferência são
+ * consulta ocasional: ficam fechadas atrás de um botão, uma de cada vez, senão a página
+ * volta a ser a rolagem comprida em que ninguém achava a tabela.
+ */
+type Gaveta = "analises" | "pendencias" | null;
+
+function Seta({ aberta }: { aberta: boolean }) {
+  return (
+    <svg
+      className={`seta${aberta ? " aberta" : ""}`}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      width="15"
+      height="15"
+      aria-hidden="true"
+    >
+      <path d="m9 18 6-6-6-6" />
+    </svg>
+  );
+}
+
 export default function Relatorio({
   dados,
   usuario,
@@ -148,6 +174,7 @@ export default function Relatorio({
   const [busca, setBusca] = useState("");
   const [ficha, setFicha] = useState<string | null>(null);
   const [dialogo, setDialogo] = useState<Dialogo>(null);
+  const [gaveta, setGaveta] = useState<Gaveta>(null);
   const [verResolvidas, setVerResolvidas] = useState(false);
 
   const anotacoesPorChave = useMemo(() => {
@@ -265,6 +292,9 @@ export default function Relatorio({
 
   const resolvidas = Object.keys(pendenciaPorId).length;
   const pctResolvido = Math.round((resolvidas / TOTAL_PENDENCIAS) * 100);
+  // O que ainda falta resolver vai no botão da gaveta: fechada, ela não pode esconder
+  // que há trabalho esperando.
+  const abertas = TOTAL_PENDENCIAS - resolvidas;
 
   const tipoAtual = TIPOS.find((t) => t.plano === tipo) || TIPOS[1];
 
@@ -331,10 +361,48 @@ export default function Relatorio({
           </div>
         </section>
 
-        <Visoes vouchers={validos} hoje={hoje} />
+        {/* ---------- gavetas de consulta ---------- */}
+        <nav className="gavetas" aria-label="Painéis de consulta">
+          <button
+            className="gaveta-botao"
+            aria-expanded={gaveta === "analises"}
+            aria-controls="painel-analises"
+            onClick={() => setGaveta((g) => (g === "analises" ? null : "analises"))}
+          >
+            <Seta aberta={gaveta === "analises"} />
+            <span>
+              <span className="titulo">Análises</span>
+              <span className="sub">coorte, mês corrente e premiação trimestral</span>
+            </span>
+          </button>
+          <button
+            className="gaveta-botao"
+            aria-expanded={gaveta === "pendencias"}
+            aria-controls="painel-pendencias"
+            onClick={() => setGaveta((g) => (g === "pendencias" ? null : "pendencias"))}
+          >
+            <Seta aberta={gaveta === "pendencias"} />
+            <span>
+              <span className="titulo">Conferência</span>
+              <span className="sub">
+                {abertas
+                  ? `${abertas} ${abertas === 1 ? "nome" : "nomes"} da lista do comercial sem voucher lançado`
+                  : "tudo resolvido"}
+              </span>
+            </span>
+            {abertas ? <span className="selo">{abertas}</span> : null}
+          </button>
+        </nav>
+
+        {gaveta === "analises" ? (
+          <div id="painel-analises">
+            <Visoes vouchers={validos} hoje={hoje} />
+          </div>
+        ) : null}
 
         {/* ---------- checklist ---------- */}
-        <section className="tarefas">
+        {gaveta === "pendencias" ? (
+        <section className="tarefas" id="painel-pendencias">
           <div className="tarefas-topo">
             <div>
               <h2>Pendências da conferência</h2>
@@ -418,8 +486,13 @@ export default function Relatorio({
             </button>
           ) : null}
         </section>
+        ) : null}
 
         {/* ---------- abas ---------- */}
+        <div className="abas-bloco">
+        {/* Com as análises fechadas sobra uma barra de abas na página; o rótulo diz o que
+            ela troca, porque "15 dias" sozinho não conta a que lista pertence. */}
+        <p className="eyebrow">Lista de vouchers — escolha o tipo</p>
         <nav className="abas" role="tablist" aria-label="Tipo de voucher">
           {TIPOS.map((t) => (
             <button
@@ -436,6 +509,7 @@ export default function Relatorio({
             </button>
           ))}
         </nav>
+        </div>
 
         <section className="painel">
           <div className="metricas">

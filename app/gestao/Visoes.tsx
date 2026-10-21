@@ -86,6 +86,9 @@ const ABAS: { id: Visao; rotulo: string; data: string }[] = [
 export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: string }) {
   const [visao, setVisao] = useState<Visao>("coorte");
   const [soExperiencia, setSoExperiencia] = useState(true);
+  // O método é consulta de quem vai conferir uma conta, não leitura de todo dia: a régua
+  // de cada visão basta para ler a tabela, o resto abre a pedido.
+  const [verMetodo, setVerMetodo] = useState(false);
 
   const base = useMemo(
     () => prepararVisoes(vouchers, { hoje, tipos: soExperiencia ? TIPOS_EXPERIENCIA : null }),
@@ -133,10 +136,8 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
         <div>
           <h2>Três leituras do mesmo dado</h2>
           <p className="sub">
-            A mesma base lida por três datas diferentes. A coorte mede a experiência, o mês
-            corrente mede a operação e a premiação fecha o pagamento. Confundir uma com a outra
-            foi o que fez a lista do comercial não bater com a do relatório — por isso cada
-            visão diz aqui qual data está usando.
+            A mesma base lida por três datas diferentes: a coorte mede a experiência, o mês
+            corrente mede a operação e a premiação fecha o pagamento.
           </p>
         </div>
         <div className="escopo" role="group" aria-label="Tipos de voucher na conta">
@@ -377,7 +378,21 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
         </>
       ) : null}
 
+      <button
+        className="ver-resolvidas"
+        aria-expanded={verMetodo}
+        onClick={() => setVerMetodo((v) => !v)}
+      >
+        {verMetodo ? "Esconder como as contas são feitas" : "Como cada conta é feita"}
+      </button>
+
+      {verMetodo ? (
       <div className="metodo">
+        <p>
+          <b>Cada visão usa uma data diferente.</b> Confundir uma com a outra foi o que fez a
+          lista do comercial não bater com a do relatório — por isso cada visão declara, na
+          própria tela, qual data está mandando.
+        </p>
         <p>
           <b>A coorte não tem prazo; a premiação tem.</b> Toda venda é creditada à coorte do
           voucher mais recente que a pessoa começou antes do contrato, por mais tempo que leve —
@@ -427,6 +442,7 @@ export default function Visoes({ vouchers, hoje }: { vouchers: Voucher[]; hoje: 
           cliente a cliente.
         </p>
       </div>
+      ) : null}
     </section>
   );
 }
