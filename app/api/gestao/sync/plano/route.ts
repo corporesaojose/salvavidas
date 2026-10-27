@@ -129,6 +129,9 @@ export async function GET(request: NextRequest) {
       // rodada para quem já fechou — chamada à toa, que é o que esta rota existe para
       // evitar.
       dataVenda: dia(linha.data_venda),
+      // Quem está com o voucher correndo nunca entra na fila `completarVenda`, então é
+      // pela lista de ativos que uma duração faltando precisa ser vista.
+      planoMeses: linha.plano_meses == null ? null : Number(linha.plano_meses),
     };
 
     const pessoa: EstadoDaPessoa = porPessoa.get(detalhe.matricula) || {
