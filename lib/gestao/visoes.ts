@@ -392,8 +392,10 @@ function creditarContratos(
     dona.comissionada = !dona.tardia;
     dona.lancamentoOrigem = lancamento;
 
-    // Coordenador não recebe. Só o treinador web decide — ver COORDENADORES_SEM_COMISSAO.
+    // Coordenador e personal não recebem. Só o treinador web decide — ver
+    // COORDENADORES_SEM_COMISSAO e PERSONAIS_SEM_COMISSAO.
     const coordenador = ehCoordenador(lancamento.treinadorWeb);
+    const personal = ehPersonal(lancamento.treinadorWeb);
 
     linhas.push({
       matricula,
@@ -413,13 +415,17 @@ function creditarContratos(
       dentroDaJanela: dona.comissionada,
       diasDepoisDaVigencia: distanciaEmDias(dona.fim, contrato.data),
       creditadoCoordenador: coordenador,
-      comissionada: dona.comissionada && !contrato.planoCurto && !coordenador,
+      creditadoPersonal: personal,
+      comissionada:
+        dona.comissionada && !contrato.planoCurto && !coordenador && !personal,
       motivoFora: !dona.comissionada
         ? "venda-nova"
         : contrato.planoCurto
         ? "plano-curto"
         : coordenador
         ? "coordenador"
+        : personal
+        ? "personal"
         : null,
     });
   }
@@ -599,18 +605,25 @@ export interface LinhaComissao {
   diasDepoisDaVigencia: number;
   /** Quem levaria o crédito é coordenador, e coordenador não recebe comissão. */
   creditadoCoordenador: boolean;
+  /** Quem levaria o crédito é personal, e personal não recebe comissão. */
+  creditadoPersonal: boolean;
   /** A venda entra na conta da comissão. */
   comissionada: boolean;
   /** Por que ficou de fora, quando ficou. Um motivo só, o primeiro que se aplica. */
   motivoFora: MotivoForaDaComissao | null;
 }
 
-export type MotivoForaDaComissao = "venda-nova" | "plano-curto" | "coordenador";
+export type MotivoForaDaComissao =
+  | "venda-nova"
+  | "plano-curto"
+  | "coordenador"
+  | "personal";
 
 export const TEXTO_MOTIVO_FORA: Record<MotivoForaDaComissao, string> = {
   "venda-nova": "venda nova",
   "plano-curto": "plano curto",
   coordenador: "coordenador",
+  personal: "personal",
 };
 
 /**
@@ -633,14 +646,55 @@ export const TEXTO_MOTIVO_FORA: Record<MotivoForaDaComissao, string> = {
  */
 export const COORDENADORES_SEM_COMISSAO = ["ANDRÉ ARAUJO SANCHES", "MAURICIO ASSAF"];
 
+/**
+ * Personal trainer não recebe premiação de voucher — regra do Fernando em 27/10/2026.
+ * Eles aparecem como treinador web em vínculos da Pacto igual a qualquer treinador da
+ * casa, então sem esta lista a venda seria creditada a quem não concorre à premiação.
+ *
+ * É a mesma forma da regra do coordenador e por isso vive do lado dela: a venda continua
+ * na lista, porque alguém vendeu, mas não entra na contagem nem gera crédito.
+ */
+export const PERSONAIS_SEM_COMISSAO = [
+  "FELIPE MATHEUS GONÇALVES DA SILVA",
+  "IVAN MALDONADO",
+  "LÍVIA AUGUSTINHO",
+];
+
 function semAcento(texto: string) {
   return texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().trim();
 }
 
-export function ehCoordenador(nome: string | null) {
+/**
+ * Casa nome de pessoa contra uma lista curta, sem acento e sem caixa.
+ *
+ * Não é igualdade exata nem `includes`, e os dois erram aqui. A equipe informa o nome
+ * curto ("Lívia Augustinho") e a Pacto grava o nome inteiro, com sobrenomes a mais — é o
+ * mesmo padrão dos alunos nesta base (Andrea Schone / Andrea Schone Ambrogi). Igualdade
+ * exata deixaria a regra passar batido, calada. Já `includes` é pior: há uma LIVIA
+ * MARIANO como treinadora web nesta base, outra pessoa, que um `includes('LIVIA')`
+ * puniria sem motivo.
+ *
+ * O critério é prefixo por palavra: as palavras da lista têm de ser as primeiras do nome
+ * gravado, na ordem. "LÍVIA AUGUSTINHO" casa com "LIVIA AUGUSTINHO SOUZA" e não casa com
+ * "LIVIA MARIANO". Por isso cada entrada da lista precisa de nome e sobrenome — só o
+ * primeiro nome casaria com qualquer homônimo.
+ */
+function estaNaLista(nome: string | null, lista: string[]) {
   if (!nome) return false;
-  const alvo = semAcento(nome);
-  return COORDENADORES_SEM_COMISSAO.some((c) => semAcento(c) === alvo);
+  const palavras = semAcento(nome).split(/\s+/);
+  return lista.some((candidato) => {
+    const procuradas = semAcento(candidato).split(/\s+/);
+    if (procuradas.length < 2 || procuradas.length > palavras.length) return false;
+    return procuradas.every((palavra, i) => palavra === palavras[i]);
+  });
+}
+
+export function ehCoordenador(nome: string | null) {
+  return estaNaLista(nome, COORDENADORES_SEM_COMISSAO);
+}
+
+export function ehPersonal(nome: string | null) {
+  return estaNaLista(nome, PERSONAIS_SEM_COMISSAO);
 }
 
 export interface ComissaoDoTreinador {
@@ -650,8 +704,8 @@ export interface ComissaoDoTreinador {
 
 /**
  * Quantos contratos cada treinador leva no mês. Cada contrato conta uma vez só, e só
- * entra o que é comissionado como voucher: venda nova, plano curto e coordenador não
- * geram crédito de treinador.
+ * entra o que é comissionado como voucher: venda nova, plano curto, coordenador e
+ * personal não geram crédito de treinador.
  */
 export function comissaoPorTreinador(linhas: LinhaComissao[]): ComissaoDoTreinador[] {
   const contagem = new Map<string, number>();
