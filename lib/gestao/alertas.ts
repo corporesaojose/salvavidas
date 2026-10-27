@@ -30,13 +30,17 @@ const REGREDIU_DIAS_SEM_VIR = 4;
  * Dia combinado na ATM (decisão do Fernando, 27/10/2026). No fim da ATM o cliente marca o dia
  * e o horário do primeiro treino. Se não passa na catraca desde esse dia, o treinador é avisado
  * 1, 3 e 5 dias depois (no 5º a consultora também, para ajudar no contato) — só enquanto o
- * voucher corre. Quem veio recebe o status no 7º dia de vigência; quem faltou e voltou depois
- * recebe também o status da metade da vigência, que vai ao treinador e à consultora.
+ * voucher corre. Quem veio recebe o status na metade da vigência (no voucher de 15 e de 30 dias;
+ * na experiência de 7 dias, no 7º dia) — só o treinador, ou treinador e consultora quando o
+ * cliente faltou no combinado e voltou depois. Na experiência, quem faltou e voltou recebe também
+ * o status da metade, com a consultora.
  * As regras de "travou" e "regrediu" continuam valendo para todos.
  */
 const FALTOU_DIAS = [5, 3, 1] as const;
 const FALTOU_COM_CONSULTORA = 5;
 const STATUS_DIA_DA_VIGENCIA = 7;
+/** A partir desta duração (vouchers de 15 e 30 dias) o status do 7º dia vira o da metade. */
+const STATUS_NA_METADE_A_PARTIR_DE = 14;
 
 export type TipoAlerta = "travou" | "regrediu" | "faltou_1" | "faltou_3" | "faltou_5" | "status_7" | "metade";
 
@@ -184,24 +188,29 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
                 (comConsultora ? " A consultora também recebeu este aviso para ajudar no contato." : ""),
         });
       }
-      if (veio && diaDaVigencia >= STATUS_DIA_DA_VIGENCIA) {
+      const faltou = faltouNoCombinado.has(base.chave);
+      const comoFoi = faltou
+        ? `Faltou no dia combinado (${dataCurta(combinado.data)}) e voltou depois.`
+        : "Veio no dia combinado.";
+      const statusNaMetade = duracao >= STATUS_NA_METADE_A_PARTIR_DE;
+      if (veio && !statusNaMetade && diaDaVigencia >= STATUS_DIA_DA_VIGENCIA) {
         itens.push({
           ...base,
           tipo: "status_7",
           rotulo: `Status no ${STATUS_DIA_DA_VIGENCIA}º dia`,
           paraConsultora: false,
           chanceAtual: chance,
-          acao: `${resumoTreinos}. ${faltouNoCombinado.has(base.chave) ? "Faltou no dia combinado e voltou depois." : "Veio no dia combinado."} ${proximoPasso}`,
+          acao: `${resumoTreinos}. ${comoFoi} ${proximoPasso}`,
         });
       }
-      if (veio && faltouNoCombinado.has(base.chave) && diaDaVigencia >= duracao * 0.5) {
+      if (veio && (statusNaMetade || faltou) && diaDaVigencia >= duracao * 0.5) {
         itens.push({
           ...base,
           tipo: "metade",
           rotulo: `Metade d${termoNaFrase(linha.plano as string)}`,
-          paraConsultora: true,
+          paraConsultora: faltou,
           chanceAtual: chance,
-          acao: `${resumoTreinos}. Faltou no dia combinado (${dataCurta(combinado.data)}) e voltou depois. ${proximoPasso}`,
+          acao: `${resumoTreinos}. ${comoFoi} ${proximoPasso}`,
         });
       }
     }

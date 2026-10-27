@@ -107,8 +107,9 @@ sai uma vez por voucher, tipo e destinatário (tabela `freepass_alertas`), e só
 | `faltou_1` | 1 dia depois do dia combinado na ATM, sem acesso desde esse dia | treinador |
 | `faltou_3` | 3 dias depois, ainda sem acesso | treinador |
 | `faltou_5` | 5 dias depois, ainda sem acesso | treinador e consultora |
-| `status_7` | 7º dia de vigência, para quem veio (no dia combinado ou depois) | treinador |
-| `metade` | metade da vigência, para quem faltou no combinado e voltou depois | treinador e consultora |
+| `metade` | voucher de 15 e de 30 dias: metade da vigência, para quem veio (no dia combinado ou depois) | treinador; também a consultora se faltou no combinado e voltou depois |
+| `status_7` | experiência de 7 dias: 7º dia, para quem veio | treinador |
+| `metade` | experiência de 7 dias: metade, só para quem faltou no combinado e voltou depois | treinador e consultora |
 
 O dia combinado vem do app da ATM (`POST /api/atm-sessoes/proximo-treino/`, etapa "Próximo treino"),
 com a variável `ATM_INGEST_SECRET` (mesmo valor do app da ATM). Sem ela, só as regras `travou` e
