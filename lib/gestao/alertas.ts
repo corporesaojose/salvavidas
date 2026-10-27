@@ -18,14 +18,6 @@ import { buscarProximosTreinos, formatarCombinado } from "@/lib/gestao/proximoTr
 
 const DIA = 86400000;
 
-/** Metade da vigência consumida e no máximo um treino: é a última janela útil. */
-const TRAVOU_MAX_TREINOS = 1;
-const TRAVOU_FRACAO_VIGENCIA = 0.5;
-
-/** Já tinha rotina (3+ treinos) e sumiu: a perda mais cara, porque já estava dentro. */
-const REGREDIU_MIN_TREINOS = 3;
-const REGREDIU_DIAS_SEM_VIR = 4;
-
 /**
  * Dia combinado na ATM (decisão do Fernando, 27/10/2026). No fim da ATM o cliente marca o dia
  * e o horário do primeiro treino. Se não passa na catraca desde esse dia, o treinador é avisado
@@ -34,7 +26,8 @@ const REGREDIU_DIAS_SEM_VIR = 4;
  * na experiência de 7 dias, no 7º dia) — só o treinador, ou treinador e consultora quando o
  * cliente faltou no combinado e voltou depois. Na experiência, quem faltou e voltou recebe também
  * o status da metade, com a consultora.
- * As regras de "travou" e "regrediu" continuam valendo para todos.
+ * Os avisos de "travou" (metade com 0 ou 1 treino) e "regrediu" (3+ treinos e 4 dias sem vir)
+ * foram retirados em 27/10/2026, decisão do Fernando: o status da metade cobre esse momento.
  */
 const FALTOU_DIAS = [5, 3, 1] as const;
 const FALTOU_COM_CONSULTORA = 5;
@@ -42,7 +35,7 @@ const STATUS_DIA_DA_VIGENCIA = 7;
 /** A partir desta duração (vouchers de 15 e 30 dias) o status do 7º dia vira o da metade. */
 const STATUS_NA_METADE_A_PARTIR_DE = 14;
 
-export type TipoAlerta = "travou" | "regrediu" | "faltou_1" | "faltou_3" | "faltou_5" | "status_7" | "metade";
+export type TipoAlerta = "faltou_1" | "faltou_3" | "faltou_5" | "status_7" | "metade";
 
 export interface ItemAlerta {
   chave: string;
@@ -215,40 +208,6 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
       }
     }
 
-    if (
-      treinos >= REGREDIU_MIN_TREINOS &&
-      diasSemVir !== null &&
-      diasSemVir >= REGREDIU_DIAS_SEM_VIR &&
-      diasRestantes >= 1
-    ) {
-      itens.push({
-        ...base,
-        tipo: "regrediu",
-        rotulo: "Parou de vir",
-        paraConsultora: true,
-        chanceAtual: comoTexto(taxas[faixaDe(treinos)]),
-        acao: `Já tinha rotina e parou há ${diasSemVir} dias. Sugestão: entrar em contato, ainda restam ${diasRestantes} dia(s) de acesso.`,
-      });
-      continue;
-    }
-
-    if (
-      treinos <= TRAVOU_MAX_TREINOS &&
-      diaDaVigencia >= duracao * TRAVOU_FRACAO_VIGENCIA &&
-      diasRestantes >= 1
-    ) {
-      itens.push({
-        ...base,
-        tipo: "travou",
-        rotulo: "Voucher travado",
-        paraConsultora: true,
-        chanceAtual: comoTexto(taxas[faixaDe(treinos)]),
-        acao:
-          treinos === 0
-            ? `Metade d${termoNaFrase(linha.plano as string)} passou sem nenhum treino. Sugestão: marcar o primeiro treino nos próximos ${Math.min(diasRestantes, 3)} dias — sem isso, fecha em ${comoTexto(taxas.nenhum)} dos casos.`
-            : `Um treino em ${diaDaVigencia} dias. Sugestão: dois treinos nesta semana levam a chance de ${comoTexto(taxas["1a2"])} para ${comoTexto(taxas["3a5"])}.`,
-      });
-    }
   }
 
   // Cada item vai para a consultora e para quem acompanha tecnicamente — treinador web
@@ -279,11 +238,13 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
     );
   }
 
-  // Dentro do card, o mais urgente primeiro: quem já engajou e sumiu, depois quem tem
+  // Dentro do card, o mais urgente primeiro: quem não veio no combinado, depois quem tem
   // menos dias de voucher pela frente.
   for (const card of Array.from(porPessoa.values())) {
     card.itens.sort((a, b) => {
-      if (a.tipo !== b.tipo) return a.tipo === "regrediu" ? -1 : 1;
+      const faltouA = a.tipo.startsWith("faltou");
+      const faltouB = b.tipo.startsWith("faltou");
+      if (faltouA !== faltouB) return faltouA ? -1 : 1;
       return a.diasRestantes - b.diasRestantes;
     });
   }
