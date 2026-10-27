@@ -35,7 +35,15 @@ const STATUS_DIA_DA_VIGENCIA = 7;
 /** A partir desta duração (vouchers de 15 e 30 dias) o status do 7º dia vira o da metade. */
 const STATUS_NA_METADE_A_PARTIR_DE = 14;
 
-export type TipoAlerta = "faltou_1" | "faltou_3" | "faltou_5" | "status_7" | "metade";
+/**
+ * Todo voucher passa pela ATM, com o dia do primeiro treino combinado na última etapa (decisão do
+ * Fernando, 27/10/2026). Voucher que já está no 2º dia de vigência sem esse dia combinado é falha de
+ * processo: vai uma vez para o #falhas-do-sistema. Não acusa nada se a consulta à ATM falhar.
+ */
+const SEM_ATM_A_PARTIR_DO_DIA = 2;
+const CANAL_FALHAS = "C0BRQ4JAQBX";
+
+export type TipoAlerta = "sem_atm" | "faltou_1" | "faltou_3" | "faltou_5" | "status_7" | "metade";
 
 export interface ItemAlerta {
   chave: string;
@@ -111,7 +119,8 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
   const taxas = await taxasPorFaixa(hoje);
 
   // Dia combinado na ATM, e quem ja recebeu o aviso de falta (para o status da metade).
-  const combinados = await buscarProximosTreinos(linhas.map((l) => String(l.matricula || "")));
+  const consulta = await buscarProximosTreinos(linhas.map((l) => String(l.matricula || "")));
+  const combinados = consulta || new Map();
   const [faltasAvisadas] = await pool.query<RowDataPacket[]>(
     `SELECT DISTINCT chave FROM freepass_alertas WHERE tipo = 'faltou_1'`
   );
@@ -161,7 +170,18 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
     // Vale o combinado que cai dentro da vigencia. "Veio" = passou na catraca no dia combinado
     // ou depois (o sync guarda so o ultimo acesso, nao o historico dia a dia).
     const combinado = combinados.get(String(linha.matricula || "").replace(/^0+/, ""));
-    if (combinado && combinado.data >= inicio && combinado.data <= fim) {
+    const temCombinado = !!combinado && combinado.data >= inicio && combinado.data <= fim;
+    if (consulta && !temCombinado && diaDaVigencia >= SEM_ATM_A_PARTIR_DO_DIA) {
+      itens.push({
+        ...base,
+        tipo: "sem_atm",
+        rotulo: "Voucher sem ATM com dia combinado",
+        paraConsultora: false,
+        chanceAtual: chance,
+        acao: `O voucher começou em ${dataCurta(inicio)} e não há ATM com o dia do primeiro treino combinado. Treinador web: ${base.treinadorWeb || base.professor || "nenhum"}. Consultora: ${base.consultora || "nenhuma"}.`,
+      });
+    }
+    if (combinado && temCombinado) {
       const quando = formatarCombinado(combinado);
       const veio = !!ultimoAcesso && ultimoAcesso >= combinado.data;
       const depois = diferencaEmDias(combinado.data, hoje);
@@ -215,13 +235,13 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
   // tem como marcar o treino que falta.
   const porPessoa = new Map<string, CardDiario>();
 
-  function incluir(nome: string | null, papel: string, item: ItemAlerta) {
+  function incluir(nome: string | null, papel: string, item: ItemAlerta, slackFixo?: string) {
     if (!nome) return;
     const chave = nome.toUpperCase();
     if (!porPessoa.has(chave)) {
       porPessoa.set(chave, {
         destinatario: nome,
-        slackId: acharPessoa(nome)?.slackId || null,
+        slackId: slackFixo || acharPessoa(nome)?.slackId || null,
         papel,
         itens: [],
       });
@@ -230,6 +250,8 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
   }
 
   for (const item of itens) {
+    // Voucher sem ATM: so o canal de falhas recebe, nao o treinador nem a consultora.
+    if (item.tipo === "sem_atm") { incluir("FALHAS DO SISTEMA", "falhas", item, CANAL_FALHAS); continue; }
     if (item.paraConsultora) incluir(item.consultora, "consultora", item);
     incluir(
       item.treinadorWeb || item.professor,

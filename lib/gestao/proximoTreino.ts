@@ -3,7 +3,8 @@
  * (atm.corporetraininggym.com.br); aqui só se pergunta, por matrícula, em lote.
  *
  * Precisa de ATM_INGEST_SECRET (o mesmo valor do app da ATM). Sem ele, ou com a ATM fora do
- * ar, volta vazio: os alertas do dia saem do mesmo jeito, só sem as regras do dia combinado.
+ * ar, volta null: os alertas do dia saem do mesmo jeito, só sem as regras do dia combinado e sem
+ * acusar voucher sem ATM (null = não deu para consultar, Map vazio = ninguém tem dia combinado).
  */
 
 export interface ProximoTreino {
@@ -15,11 +16,12 @@ export interface ProximoTreino {
 
 const DIAS_SEMANA = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
 
-export async function buscarProximosTreinos(matriculas: string[]): Promise<Map<string, ProximoTreino>> {
+export async function buscarProximosTreinos(matriculas: string[]): Promise<Map<string, ProximoTreino> | null> {
   const resultado = new Map<string, ProximoTreino>();
   const segredo = process.env.ATM_INGEST_SECRET || "";
   const lista = Array.from(new Set(matriculas.map((m) => String(m || "").replace(/^0+/, "")).filter(Boolean)));
-  if (!segredo || !lista.length) return resultado;
+  if (!segredo) return null;
+  if (!lista.length) return resultado;
 
   const base = (process.env.ATM_PUBLIC_URL || "https://atm.corporetraininggym.com.br").replace(/\/+$/, "");
   try {
@@ -30,7 +32,7 @@ export async function buscarProximosTreinos(matriculas: string[]): Promise<Map<s
       cache: "no-store",
       signal: AbortSignal.timeout(15000),
     });
-    if (!resposta.ok) return resultado;
+    if (!resposta.ok) return null;
     const corpo = await resposta.json();
     for (const [matricula, item] of Object.entries<Record<string, unknown>>(corpo?.itens || {})) {
       const data = String(item?.data || "");
@@ -39,6 +41,7 @@ export async function buscarProximosTreinos(matriculas: string[]): Promise<Map<s
     }
   } catch (erro) {
     console.error("Não consegui buscar o próximo treino na ATM:", erro);
+    return null;
   }
   return resultado;
 }

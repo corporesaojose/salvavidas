@@ -102,6 +102,7 @@ sai uma vez por voucher, tipo e destinatário (tabela `freepass_alertas`), e só
 
 | Tipo | Quando | Quem recebe |
 |---|---|---|
+| `sem_atm` | 2º dia de vigência sem ATM com dia combinado (todo voucher passa pela ATM) | só o canal #falhas-do-sistema |
 | `faltou_1` | 1 dia depois do dia combinado na ATM, sem acesso desde esse dia | treinador |
 | `faltou_3` | 3 dias depois, ainda sem acesso | treinador |
 | `faltou_5` | 5 dias depois, ainda sem acesso | treinador e consultora |
