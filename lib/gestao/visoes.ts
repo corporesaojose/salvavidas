@@ -657,7 +657,7 @@ export const COORDENADORES_SEM_COMISSAO = ["ANDRÉ ARAUJO SANCHES", "MAURICIO AS
 export const PERSONAIS_SEM_COMISSAO = [
   "FELIPE MATHEUS GONÇALVES DA SILVA",
   "IVAN MALDONADO",
-  "LÍVIA AUGUSTINHO",
+  "LIVIA MARIANO",
 ];
 
 function semAcento(texto: string) {
@@ -668,16 +668,16 @@ function semAcento(texto: string) {
  * Casa nome de pessoa contra uma lista curta, sem acento e sem caixa.
  *
  * Não é igualdade exata nem `includes`, e os dois erram aqui. A equipe informa o nome
- * curto ("Lívia Augustinho") e a Pacto grava o nome inteiro, com sobrenomes a mais — é o
+ * curto ("Lívia Mariano") e a Pacto grava o nome inteiro, com sobrenomes a mais — é o
  * mesmo padrão dos alunos nesta base (Andrea Schone / Andrea Schone Ambrogi). Igualdade
- * exata deixaria a regra passar batido, calada. Já `includes` é pior: há uma LIVIA
- * MARIANO como treinadora web nesta base, outra pessoa, que um `includes('LIVIA')`
- * puniria sem motivo.
+ * exata deixaria a regra passar batido, calada.
  *
- * O critério é prefixo por palavra: as palavras da lista têm de ser as primeiras do nome
- * gravado, na ordem. "LÍVIA AUGUSTINHO" casa com "LIVIA AUGUSTINHO SOUZA" e não casa com
- * "LIVIA MARIANO". Por isso cada entrada da lista precisa de nome e sobrenome — só o
- * primeiro nome casaria com qualquer homônimo.
+ * O critério é prefixo por PALAVRA: as palavras da lista têm de ser as primeiras do nome
+ * gravado, na ordem. "LIVIA MARIANO" casa com "LIVIA MARIANO DA COSTA" e não casa com
+ * "LIVIAN ROSANE DE OLIVEIRA" (que existe nesta base, lançando vouchers) — e é por isso
+ * que a comparação é por palavra e não por substring: "LIVIA" é prefixo do texto
+ * "LIVIAN", mas não é a mesma palavra. Por isso também cada entrada precisa de nome e
+ * sobrenome: só o primeiro nome casaria com qualquer homônimo.
  */
 function estaNaLista(nome: string | null, lista: string[]) {
   if (!nome) return false;
