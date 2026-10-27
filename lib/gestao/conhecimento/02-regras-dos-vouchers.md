@@ -94,3 +94,24 @@ O custo direto é **dia de academia liberado**: 7, 15 ou 30 dias por pessoa. O c
 indireto é o tempo da equipe — CRM, ATM, montagem de treino e follow-up. Um voucher que
 nunca teve entrada na catraca gastou o tempo do CRM e da montagem sem gerar experiência
 nenhuma: é o pior resultado possível, pior do que não ter concedido.
+
+## Alertas do dia para o treinador e a consultora (lib/gestao/alertas.ts)
+
+O n8n (`Gestao Vouchers — Alerta diario (DM)`) chama `/api/gestao/alertas` todo dia às 9h. Cada aviso
+sai uma vez por voucher, tipo e destinatário (tabela `freepass_alertas`), e só enquanto o voucher corre.
+
+| Tipo | Quando | Quem recebe |
+|---|---|---|
+| `travou` | 0 ou 1 treino e metade da vigência já passou | treinador e consultora |
+| `regrediu` | 3+ treinos e 4+ dias sem vir | treinador e consultora |
+| `faltou_1` | 1 dia depois do dia combinado na ATM, sem acesso desde esse dia | treinador |
+| `faltou_3` | 3 dias depois, ainda sem acesso | treinador |
+| `faltou_5` | 5 dias depois, ainda sem acesso | treinador e consultora |
+| `status_7` | 7º dia de vigência, para quem veio (no dia combinado ou depois) | treinador |
+| `metade` | metade da vigência, para quem faltou no combinado e voltou depois | treinador e consultora |
+
+O dia combinado vem do app da ATM (`POST /api/atm-sessoes/proximo-treino/`, etapa "Próximo treino"),
+com a variável `ATM_INGEST_SECRET` (mesmo valor do app da ATM). Sem ela, só as regras `travou` e
+`regrediu` funcionam. Só vale o combinado que cai dentro da vigência. "Veio" = último acesso no dia
+combinado ou depois: o sync guarda só o último acesso, não o histórico dia a dia.
+Regras decididas pelo Fernando em 27/10/2026.

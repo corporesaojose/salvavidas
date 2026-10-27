@@ -4,6 +4,7 @@ import { garantirSchema } from "@/lib/gestao/schema";
 import { acharPessoa } from "@/lib/gestao/pessoas";
 import { rotuloPlano, termoNaFrase } from "@/lib/gestao/planos";
 import { comoTexto, faixaDe, taxasPorFaixa } from "@/lib/gestao/referencias";
+import { buscarProximosTreinos, formatarCombinado } from "@/lib/gestao/proximoTreino";
 
 /**
  * Alerta só existe quando ainda dá para mudar o desfecho.
@@ -25,11 +26,27 @@ const TRAVOU_FRACAO_VIGENCIA = 0.5;
 const REGREDIU_MIN_TREINOS = 3;
 const REGREDIU_DIAS_SEM_VIR = 4;
 
-export type TipoAlerta = "travou" | "regrediu";
+/**
+ * Dia combinado na ATM (decisão do Fernando, 27/10/2026). No fim da ATM o cliente marca o dia
+ * e o horário do primeiro treino. Se não passa na catraca desde esse dia, o treinador é avisado
+ * 1, 3 e 5 dias depois (no 5º a consultora também, para ajudar no contato) — só enquanto o
+ * voucher corre. Quem veio recebe o status no 7º dia de vigência; quem faltou e voltou depois
+ * recebe também o status da metade da vigência, que vai ao treinador e à consultora.
+ * As regras de "travou" e "regrediu" continuam valendo para todos.
+ */
+const FALTOU_DIAS = [5, 3, 1] as const;
+const FALTOU_COM_CONSULTORA = 5;
+const STATUS_DIA_DA_VIGENCIA = 7;
+
+export type TipoAlerta = "travou" | "regrediu" | "faltou_1" | "faltou_3" | "faltou_5" | "status_7" | "metade";
 
 export interface ItemAlerta {
   chave: string;
   tipo: TipoAlerta;
+  /** Título curto do aviso, mostrado acima da linha do voucher. */
+  rotulo: string;
+  /** Além do treinador (ou professor), a consultora também recebe. */
+  paraConsultora: boolean;
   matricula: string;
   nome: string;
   fotoUrl: string | null;
@@ -96,6 +113,13 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
   // A regua sai do historico da propria Corpore, nao de numero fixo no codigo.
   const taxas = await taxasPorFaixa(hoje);
 
+  // Dia combinado na ATM, e quem ja recebeu o aviso de falta (para o status da metade).
+  const combinados = await buscarProximosTreinos(linhas.map((l) => String(l.matricula || "")));
+  const [faltasAvisadas] = await pool.query<RowDataPacket[]>(
+    `SELECT DISTINCT chave FROM freepass_alertas WHERE tipo = 'faltou_1'`
+  );
+  const faltouNoCombinado = new Set(faltasAvisadas.map((l) => String(l.chave)));
+
   const itens: ItemAlerta[] = [];
 
   for (const linha of linhas) {
@@ -126,6 +150,61 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
       treinadorWeb: (linha.treinador_web as string) || null,
       professor: (linha.professor as string) || null,
     };
+    const chance = comoTexto(taxas[faixaDe(treinos)]);
+    const dataCurta = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
+    const resumoTreinos =
+      `${treinos} ${treinos === 1 ? "treino" : "treinos"} até agora` +
+      (ultimoAcesso ? `, último em ${dataCurta(ultimoAcesso)}` : "");
+    const proximoPasso =
+      treinos >= 3
+        ? "Sugestão: manter o ritmo e já combinar os próximos treinos."
+        : `Sugestão: combinar os próximos treinos — com 3 ou mais a chance vai para ${comoTexto(taxas["3a5"])}.`;
+
+    // ---- Dia combinado na ATM ----
+    // Vale o combinado que cai dentro da vigencia. "Veio" = passou na catraca no dia combinado
+    // ou depois (o sync guarda so o ultimo acesso, nao o historico dia a dia).
+    const combinado = combinados.get(String(linha.matricula || "").replace(/^0+/, ""));
+    if (combinado && combinado.data >= inicio && combinado.data <= fim) {
+      const quando = formatarCombinado(combinado);
+      const veio = !!ultimoAcesso && ultimoAcesso >= combinado.data;
+      const depois = diferencaEmDias(combinado.data, hoje);
+      if (!veio && depois >= 1) {
+        const marco = FALTOU_DIAS.find((n) => depois >= n)!;
+        const comConsultora = marco >= FALTOU_COM_CONSULTORA;
+        itens.push({
+          ...base,
+          tipo: `faltou_${marco}` as TipoAlerta,
+          rotulo: marco === 1 ? "Não veio no dia combinado na ATM" : `${depois} dias depois do combinado, sem vir`,
+          paraConsultora: comConsultora,
+          chanceAtual: chance,
+          acao:
+            marco === 1
+              ? `Combinou na ATM de voltar ${quando} e não passou na catraca. Sugestão: mandar mensagem dizendo que estava esperando e marcar um novo dia.`
+              : `Combinou na ATM de voltar ${quando} e não veio até hoje. Sugestão: falar de novo e marcar o dia, ainda restam ${diasRestantes} dia(s) de acesso.` +
+                (comConsultora ? " A consultora também recebeu este aviso para ajudar no contato." : ""),
+        });
+      }
+      if (veio && diaDaVigencia >= STATUS_DIA_DA_VIGENCIA) {
+        itens.push({
+          ...base,
+          tipo: "status_7",
+          rotulo: `Status no ${STATUS_DIA_DA_VIGENCIA}º dia`,
+          paraConsultora: false,
+          chanceAtual: chance,
+          acao: `${resumoTreinos}. ${faltouNoCombinado.has(base.chave) ? "Faltou no dia combinado e voltou depois." : "Veio no dia combinado."} ${proximoPasso}`,
+        });
+      }
+      if (veio && faltouNoCombinado.has(base.chave) && diaDaVigencia >= duracao * 0.5) {
+        itens.push({
+          ...base,
+          tipo: "metade",
+          rotulo: `Metade d${termoNaFrase(linha.plano as string)}`,
+          paraConsultora: true,
+          chanceAtual: chance,
+          acao: `${resumoTreinos}. Faltou no dia combinado (${dataCurta(combinado.data)}) e voltou depois. ${proximoPasso}`,
+        });
+      }
+    }
 
     if (
       treinos >= REGREDIU_MIN_TREINOS &&
@@ -136,6 +215,8 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
       itens.push({
         ...base,
         tipo: "regrediu",
+        rotulo: "Parou de vir",
+        paraConsultora: true,
         chanceAtual: comoTexto(taxas[faixaDe(treinos)]),
         acao: `Já tinha rotina e parou há ${diasSemVir} dias. Sugestão: entrar em contato, ainda restam ${diasRestantes} dia(s) de acesso.`,
       });
@@ -150,6 +231,8 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
       itens.push({
         ...base,
         tipo: "travou",
+        rotulo: "Voucher travado",
+        paraConsultora: true,
         chanceAtual: comoTexto(taxas[faixaDe(treinos)]),
         acao:
           treinos === 0
@@ -179,7 +262,7 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
   }
 
   for (const item of itens) {
-    incluir(item.consultora, "consultora", item);
+    if (item.paraConsultora) incluir(item.consultora, "consultora", item);
     incluir(
       item.treinadorWeb || item.professor,
       item.treinadorWeb ? "treinador" : "professor",
