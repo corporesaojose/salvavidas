@@ -43,7 +43,15 @@ const STATUS_NA_METADE_A_PARTIR_DE = 14;
 const SEM_ATM_A_PARTIR_DO_DIA = 2;
 const CANAL_FALHAS = "C0BRQ4JAQBX";
 
-export type TipoAlerta = "sem_atm" | "faltou_1" | "faltou_3" | "faltou_5" | "status_7" | "metade";
+/**
+ * Primeiro treino marcado longe do início do voucher (decisão do Fernando, 28/10/2026): se o dia
+ * combinado na ATM fica mais de 3 dias depois do início da vigência, a consultora é avisada uma vez,
+ * para tentar antecipar — cada dia parado é voucher que corre sem treino. Vale também para o combinado
+ * marcado depois do fim do voucher. Só a consultora recebe: o treinador foi quem marcou.
+ */
+const COMBINADO_LONGE_DIAS = 3;
+
+export type TipoAlerta = "sem_atm" | "combinado_longe" | "faltou_1" | "faltou_3" | "faltou_5" | "status_7" | "metade";
 
 export interface ItemAlerta {
   chave: string;
@@ -171,7 +179,25 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
     // ou depois (o sync guarda so o ultimo acesso, nao o historico dia a dia).
     const combinado = combinados.get(String(linha.matricula || "").replace(/^0+/, ""));
     const temCombinado = !!combinado && combinado.data >= inicio && combinado.data <= fim;
-    if (consulta && !temCombinado && diaDaVigencia >= SEM_ATM_A_PARTIR_DO_DIA) {
+    const depoisDoFim = !!combinado && combinado.data > fim;
+    if (combinado && combinado.data >= inicio && hoje <= combinado.data) {
+      const distancia = diferencaEmDias(inicio, combinado.data);
+      if (distancia > COMBINADO_LONGE_DIAS) {
+        const quem = base.treinadorWeb || base.professor;
+        itens.push({
+          ...base,
+          tipo: "combinado_longe",
+          rotulo: depoisDoFim ? "Primeiro treino marcado depois do fim do voucher" : `Primeiro treino marcado para ${distancia} dias depois do início`,
+          paraConsultora: true,
+          chanceAtual: chance,
+          acao:
+            `Na ATM, o primeiro treino ficou para ${formatarCombinado(combinado)}, ${distancia} dias depois do início do voucher (${dataCurta(inicio)}). ` +
+            (depoisDoFim ? `O voucher acaba antes, em ${dataCurta(fim)}. ` : `O voucher vai até ${dataCurta(fim)}. `) +
+            `Sugestão: falar com o cliente e tentar antecipar o primeiro treino` + (quem ? `, combinando o novo dia com ${quem}.` : "."),
+        });
+      }
+    }
+    if (consulta && !temCombinado && !depoisDoFim && diaDaVigencia >= SEM_ATM_A_PARTIR_DO_DIA) {
       itens.push({
         ...base,
         tipo: "sem_atm",
@@ -252,6 +278,8 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
   for (const item of itens) {
     // Voucher sem ATM: so o canal de falhas recebe, nao o treinador nem a consultora.
     if (item.tipo === "sem_atm") { incluir("FALHAS DO SISTEMA", "falhas", item, CANAL_FALHAS); continue; }
+    // Combinado longe do início: so a consultora.
+    if (item.tipo === "combinado_longe") { incluir(item.consultora, "consultora", item); continue; }
     if (item.paraConsultora) incluir(item.consultora, "consultora", item);
     incluir(
       item.treinadorWeb || item.professor,

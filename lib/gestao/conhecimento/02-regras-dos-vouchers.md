@@ -103,6 +103,7 @@ sai uma vez por voucher, tipo e destinatário (tabela `freepass_alertas`), e só
 | Tipo | Quando | Quem recebe |
 |---|---|---|
 | `sem_atm` | 2º dia de vigência sem ATM com dia combinado (todo voucher passa pela ATM) | só o canal #falhas-do-sistema |
+| `combinado_longe` | o dia combinado na ATM fica mais de 3 dias depois do início da vigência (ou depois do fim do voucher); sai assim que aparece, até o dia combinado | só a consultora, para tentar antecipar |
 | `faltou_1` | 1 dia depois do dia combinado na ATM, sem acesso desde esse dia | treinador |
 | `faltou_3` | 3 dias depois, ainda sem acesso | treinador |
 | `faltou_5` | 5 dias depois, ainda sem acesso | treinador e consultora |
@@ -111,7 +112,8 @@ sai uma vez por voucher, tipo e destinatário (tabela `freepass_alertas`), e só
 | `metade` | experiência de 7 dias: metade, só para quem faltou no combinado e voltou depois | treinador e consultora |
 
 O dia combinado vem do app da ATM (`POST /api/atm-sessoes/proximo-treino/`, etapa "Próximo treino"),
-com a variável `ATM_INGEST_SECRET` (mesmo valor do app da ATM). Sem ela, nenhum aviso do dia combinado sai. Só vale o combinado que cai dentro da vigência. "Veio" = último acesso no dia
+com a variável `ATM_INGEST_SECRET` (mesmo valor do app da ATM). Sem ela, nenhum aviso do dia combinado sai. Só vale o combinado que cai dentro da vigência
+(o combinado depois do fim do voucher gera só o `combinado_longe`, não o `sem_atm`). "Veio" = último acesso no dia
 combinado ou depois: o sync guarda só o último acesso, não o histórico dia a dia.
 Regras decididas pelo Fernando em 27/10/2026. No mesmo dia saíram os avisos `travou` (metade com 0 ou 1 treino)
 e `regrediu` (3+ treinos e 4 dias sem vir): o status da metade cobre esse momento.
