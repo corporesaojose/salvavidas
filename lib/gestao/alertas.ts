@@ -281,11 +281,19 @@ export async function montarAlertasDoDia(hoje = hojeSaoPaulo()): Promise<CardDia
     // Combinado longe do início: so a consultora.
     if (item.tipo === "combinado_longe") { incluir(item.consultora, "consultora", item); continue; }
     if (item.paraConsultora) incluir(item.consultora, "consultora", item);
-    incluir(
-      item.treinadorWeb || item.professor,
-      item.treinadorWeb ? "treinador" : "professor",
-      item
-    );
+    const quemAcompanha = item.treinadorWeb || item.professor;
+    incluir(quemAcompanha, item.treinadorWeb ? "treinador" : "professor", item);
+    // Sem treinador web nem professor na Pacto, o aviso não tem para quem ir — a consultora
+    // sozinha não resolve, e ninguém ficava sabendo que o treinador não foi avisado (caso
+    // Valeria Mendes, 10/11/2026: a gravação do vínculo só aconteceu depois da fila das 5h10).
+    // Vai para o #falhas-do-sistema, uma vez por aviso, para alguém ajustar o vínculo.
+    if (!quemAcompanha) {
+      incluir("FALHAS DO SISTEMA", "falhas", {
+        ...item,
+        rotulo: `Sem treinador para receber: ${item.rotulo}`,
+        acao: `Este aviso não chegou a nenhum treinador porque o cliente está sem Treinador Web (nem Professor) na Pacto. Ajuste o vínculo. ${item.acao}`,
+      }, CANAL_FALHAS);
+    }
   }
 
   // Dentro do card, o mais urgente primeiro: quem não veio no combinado, depois quem tem
